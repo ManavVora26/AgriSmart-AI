@@ -25,9 +25,9 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -130,9 +130,9 @@ if os.path.exists(frontend_dir):
     logger.info(f"Mounted static frontend from {frontend_dir} at /frontend")
 
 
-# ─── Health Check ───────────────────────────────────────────────────────────────
+# ─── Health Check & Root Redirect ─────────────────────────────────────────────
 @app.get(
-    "/",
+    "/health",
     tags=["Health"],
     summary="Health check",
     description="Returns server status and available endpoints.",
@@ -155,10 +155,20 @@ async def health_check():
             "bonus_e": "POST /assistant",
             "bonus_g": "GET /agent/advisories",
             "docs": "GET /docs",
+            "frontend": "GET /frontend/index.html",
         },
         "weather_source": "Open-Meteo (open-meteo.com) — no API key required",
         "ai_assistant": "Google Gemini 1.5 Flash",
     }
+
+
+@app.get("/", include_in_schema=False)
+async def root(request: Request):
+    """Redirect browser visits directly to the frontend web app, while returning JSON for API clients."""
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept and "text/html" not in accept:
+        return await health_check()
+    return RedirectResponse(url="/frontend/index.html")
 
 
 # ─── Bonus G — Agentic Advisor ──────────────────────────────────────────────────
