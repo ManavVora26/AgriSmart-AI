@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriSmart AI — Intelligent Autonomous Farming Advisor</title>
+  <meta name="description" content="AgriSmart AI empowers farmers with ML-driven plant disease diagnosis, smart irrigation scheduling, crop recommendation, weather intelligence, and an autonomous agricultural advisor.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ================= App Header ================= -->
+  <header class="app-header" role="banner">
+    <div class="header-container">
+      <a href="#section-disease" class="brand-area" id="brandHomeLink" aria-label="AgriSmart AI Home">
+        <div class="brand-logo-wrap" aria-hidden="true">
+          <!-- Leaf / Sprout Icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>AgriSmart AI <span class="brand-badge">Autonomous v2.4</span></h1>
+          <p class="brand-tagline">Intelligent Agricultural Decision Engine</p>
+        </div>
+      </a>
+
+      <!-- Live Field Telemetry Capsule -->
+      <div class="header-telemetry" aria-label="Field Telemetry Status">
+        <div class="telemetry-item">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span>Field Station: <strong>Sector A-4 (Live)</strong></span>
+        </div>
+        <div class="telemetry-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          <span id="headerMoistureVal">Moisture: <strong>42%</strong></span>
+        </div>
+        <div class="telemetry-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+          </svg>
+          <span id="headerWeatherVal">28°C • Rain 65%</span>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button type="button" class="nav-toggle-btn" id="navToggleBtn" aria-label="Toggle Navigation Menu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+            <line x1="4" x2="20" y1="12" y2="12"/>
+            <line x1="4" x2="20" y1="6" y2="6"/>
+            <line x1="4" x2="20" y1="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= Primary Navigation Bar (All 7 Sections) ================= -->
+  <nav class="nav-wrapper" role="navigation" aria-label="Main Agriculture Navigation">
+    <div class="nav-container">
+      <ul class="nav-list" role="tablist" id="mainNavList">
+        
+        <!-- 1. Disease Detection (Core) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn active" role="tab" aria-selected="true" aria-controls="section-disease" id="tab-disease" data-section="section-disease">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+            </svg>
+            <span>Disease Detection</span>
+            <span class="nav-badge">Core</span>
+          </button>
+        </li>
+
+        <!-- 2. Crop Recommendation (Bonus A) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn" role="tab" aria-selected="false" aria-controls="section-crop" id="tab-crop" data-section="section-crop">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m2 22 1-1h18l1 1"/>
+              <path d="M12 2v20"/>
+              <path d="m4.93 10.93 4.24-4.24"/>
+              <path d="m14.83 6.69 4.24 4.24"/>
+              <path d="m14.83 14.69 4.24-4.24"/>
+              <path d="m4.93 18.93 4.24-4.24"/>
+            </svg>
+            <span>Crop Recommendation</span>
+          </button>
+        </li>
+
+        <!-- 3. Smart Irrigation (Bonus B) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn" role="tab" aria-selected="false" aria-controls="section-irrigation" id="tab-irrigation" data-section="section-irrigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+            </svg>
+            <span>Smart Irrigation</span>
+          </button>
+        </li>
+
+        <!-- 4. Weather Intelligence (Bonus C) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn" role="tab" aria-selected="false" aria-controls="section-weather" id="tab-weather" data-section="section-weather">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+              <path d="M22 10V6a2 2 0 0 0-2-2h-4"/>
+            </svg>
+            <span>Weather Intelligence</span>
+          </button>
+        </li>
+
+        <!-- 5. Sustainability Score (Bonus D) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn" role="tab" aria-selected="false" aria-controls="section-sustainability" id="tab-sustainability" data-section="section-sustainability">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="m4.93 4.93 4.24 4.24"/>
+              <path d="m14.83 9.17 4.24-4.24"/>
+              <path d="M12 2v20"/>
+            </svg>
+            <span>Sustainability</span>
+          </button>
+        </li>
+
+        <!-- 6. Farmer Assistant (Bonus E) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn" role="tab" aria-selected="false" aria-controls="section-assistant" id="tab-assistant" data-section="section-assistant">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Farmer Assistant</span>
+          </button>
+        </li>
+
+        <!-- 7. Agentic Advisor Feed (Bonus G) -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-btn" role="tab" aria-selected="false" aria-controls="section-agentic" id="tab-agentic" data-section="section-agentic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 8V4H8"/>
+              <rect width="16" height="12" x="4" y="8" rx="2"/>
+              <path d="M2 14h2"/>
+              <path d="M20 14h2"/>
+              <path d="M15 13v2"/>
+              <path d="M9 13v2"/>
+            </svg>
+            <span>Agentic Feed</span>
+            <span class="nav-badge" id="agenticUnreadBadge">4</span>
+          </button>
+        </li>
+
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ================= Main Application Body ================= -->
+  <main class="main-content" id="mainContent" role="main">
+
+    <!-- =======================================================
+         SECTION 1: Home / Upload (Core Disease Detection)
+         ======================================================= -->
+    <section class="app-section active" id="section-disease" role="tabpanel" aria-labelledby="tab-disease">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>Core Diagnostic Engine</span>
+          </div>
+          <h2 class="section-title">Plant Pathology & Disease Detection</h2>
+          <p class="section-desc">Upload a clear photograph of the affected leaf along with localized farm telemetry. The ML model cross-references foliar lesions with microclimate data for precise pathology diagnosis.</p>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        
+        <!-- Left Column: Image Upload & Presets -->
+        <div class="upload-container">
+          <div class="card">
+            <div class="card-title-bar">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/>
+                  <line x1="16" x2="22" y1="5" y2="5"/>
+                  <line x1="19" x2="19" y1="2" y2="8"/>
+                  <circle cx="9" cy="9" r="2"/>
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                </svg>
+                <span>1. Foliar Image Upload</span>
+              </h3>
+            </div>
+
+            <!-- Quick Test Samples Bar -->
+            <div class="sample-presets-bar">
+              <div class="sample-presets-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+                <span>Instant Test Samples (Click to load):</span>
+              </div>
+              <div class="sample-chips-wrap" id="samplePresetsContainer">
+                <button type="button" class="sample-chip" data-preset="tomato_blight">
+                  <span>🍅 Tomato (Blight)</span>
+                </button>
+                <button type="button" class="sample-chip" data-preset="corn_healthy">
+                  <span>🌽 Corn (Healthy)</span>
+                </button>
+                <button type="button" class="sample-chip" data-preset="potato_blight">
+                  <span>🥔 Potato (Late Blight)</span>
+                </button>
+                <button type="button" class="sample-chip" data-preset="apple_scab">
+                  <span>🍏 Apple (Scab)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div class="dropzone" id="leafDropzone" tabindex="0" role="button" aria-label="Drop leaf photo or click to browse files">
+              <input type="file" id="leafFileInput" class="file-hidden-input" accept="image/*" aria-label="Upload leaf image">
+              <div class="dropzone-inner">
+                <div class="dropzone-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" x2="12" y1="3" y2="15"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="dropzone-title">Drag and drop your leaf photo here</div>
+                  <div class="dropzone-subtitle">or click to browse from device (JPEG, PNG, WebP)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Image Preview Box -->
+            <div class="preview-card" id="imagePreviewCard" aria-live="polite">
+              <div class="preview-thumbnail-wrap" id="previewThumbnailWrap">
+                <!-- Injected img or SVG thumbnail -->
+              </div>
+              <div class="preview-info">
+                <div class="preview-filename" id="previewFilename">sample_leaf.jpg</div>
+                <div class="preview-meta" id="previewMeta">Selected sample • Ready to analyze</div>
+              </div>
+              <button type="button" class="preview-remove-btn" id="previewRemoveBtn" aria-label="Remove image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Farm Context Form Card -->
+          <div class="card">
+            <div class="card-title-bar">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M3 3h18v18H3z"/>
+                  <path d="M21 9H3"/>
+                  <path d="M21 15H3"/>
+                  <path d="M9 3v18"/>
+                  <path d="M15 3v18"/>
+                </svg>
+                <span>2. Localized Farm Context</span>
+              </h3>
+            </div>
+
+            <form id="farmContextForm" class="form-grid" novalidate>
+              
+              <!-- Crop Type -->
+              <div class="form-group">
+                <label for="cropTypeSelect" class="form-label">Crop Species</label>
+                <select id="cropTypeSelect" class="form-select" required>
+                  <option value="Tomato" selected>Tomato (Solanum lycopersicum)</option>
+                  <option value="Potato">Potato (Solanum tuberosum)</option>
+                  <option value="Corn">Corn / Maize (Zea mays)</option>
+                  <option value="Wheat">Wheat (Triticum aestivum)</option>
+                  <option value="Rice">Paddy Rice (Oryza sativa)</option>
+                  <option value="Apple">Apple (Malus domestica)</option>
+                </select>
+              </div>
+
+              <!-- Growth Stage -->
+              <div class="form-group">
+                <label for="growthStageSelect" class="form-label">Growth Stage</label>
+                <select id="growthStageSelect" class="form-select">
+                  <option value="Seedling">Seedling / Germination</option>
+                  <option value="Vegetative">Vegetative Canopy Growth</option>
+                  <option value="Flowering">Flowering / Blossom</option>
+                  <option value="Fruiting" selected>Fruiting / Pod Development</option>
+                  <option value="Mature">Maturity / Pre-Harvest</option>
+                </select>
+              </div>
+
+              <!-- Soil Type -->
+              <div class="form-group">
+                <label for="soilTypeSelect" class="form-label">Soil Profile</label>
+                <select id="soilTypeSelect" class="form-select">
+                  <option value="Loamy" selected>Loamy (Rich Organic)</option>
+                  <option value="Clay Loam">Clay Loam (High Moisture)</option>
+                  <option value="Black Cotton">Black Cotton Soil (Vertisol)</option>
+                  <option value="Sandy Loam">Sandy Loam (Quick Draining)</option>
+                </select>
+              </div>
+
+              <!-- Soil pH -->
+              <div class="form-group">
+                <label for="phInput" class="form-label">
+                  <span>Soil pH Level</span>
+                  <span class="form-label-val" id="phDisplay">6.4 pH</span>
+                </label>
+                <input type="range" id="phInput" class="form-range" min="4.5" max="8.5" step="0.1" value="6.4" aria-valuemin="4.5" aria-valuemax="8.5" aria-valuenow="6.4">
+              </div>
+
+              <!-- Soil Moisture % -->
+              <div class="form-group">
+                <label for="moistureInput" class="form-label">
+                  <span>Soil Moisture</span>
+                  <span class="form-label-val" id="moistureDisplay">68%</span>
+                </label>
+                <input type="range" id="moistureInput" class="form-range" min="10" max="95" step="1" value="68" aria-valuemin="10" aria-valuemax="95" aria-valuenow="68">
+              </div>
+
+              <!-- Ambient Temperature -->
+              <div class="form-group">
+                <label for="tempInput" class="form-label">
+                  <span>Temperature</span>
+                  <span class="form-label-val" id="tempDisplay">27°C</span>
+                </label>
+                <input type="range" id="tempInput" class="form-range" min="10" max="45" step="1" value="27" aria-valuemin="10" aria-valuemax="45" aria-valuenow="27">
+              </div>
+
+              <!-- Rain Probability -->
+              <div class="form-group">
+                <label for="rainProbInput" class="form-label">
+                  <span>Rain Probability (24h)</span>
+                  <span class="form-label-val" id="rainProbDisplay">65%</span>
+                </label>
+                <input type="range" id="rainProbInput" class="form-range" min="0" max="100" step="5" value="65" aria-valuemin="0" aria-valuemax="100" aria-valuenow="65">
+              </div>
+
+              <!-- Farm Location -->
+              <div class="form-group">
+                <label for="locationInput" class="form-label">Farm Location</label>
+                <input type="text" id="locationInput" class="form-input" value="Nashik Valley, MH" placeholder="Enter town or GPS station">
+              </div>
+
+              <!-- Submit Button -->
+              <div class="form-group full-width">
+                <button type="submit" id="analyzeBtn" class="btn-primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="20" height="20" aria-hidden="true">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  </svg>
+                  <span id="analyzeBtnText">Analyze Crop Health</span>
+                </button>
+              </div>
+
+            </form>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Results & Actionable Advice -->
+        <div class="result-container" id="resultsContainer" style="position: relative;">
+          
+          <!-- Loading Overlay -->
+          <div class="loading-overlay" id="diseaseLoadingOverlay" aria-live="assertive">
+            <div class="spinner"></div>
+            <div class="spinner-text">Analyzing foliar symptoms & farm telemetry...</div>
+          </div>
+
+          <!-- Result Header Card -->
+          <div class="result-header-card" id="resultHeaderCard">
+            <div class="result-header-top">
+              <div>
+                <span class="result-status-badge diseased" id="resStatusBadge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16" aria-hidden="true">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <span id="resStatusText">Pathogen Detected</span>
+                </span>
+                <h3 class="result-disease-name" id="resDiseaseName">Early Blight (Alternaria solani)</h3>
+                <div class="result-scientific-name" id="resScientificName">Alternaria solani • Foliar Fungal Complex</div>
+              </div>
+              <span class="severity-tag" id="resSeverityTag">Moderate to High Alert</span>
+            </div>
+
+            <!-- Confidence Bar -->
+            <div class="confidence-box">
+              <div class="confidence-label-row">
+                <span>Model Confidence</span>
+                <span class="confidence-val" id="resConfidenceVal">94.8%</span>
+              </div>
+              <div class="confidence-track">
+                <div class="confidence-fill" id="resConfidenceBar" style="width: 94.8%;"></div>
+              </div>
+            </div>
+
+            <p id="resSummaryText">Fungal foliar disease characterized by dark brown concentric lesions ("bullseye pattern") starting on the oldest lower foliage. Elevated humidity and 27°C temperature have accelerated spore germination.</p>
+          </div>
+
+          <!-- Symptoms Observed -->
+          <div class="advisory-block">
+            <h4 class="advisory-block-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                <path d="M2 12h5l3 5 4-11 3 6h5"/>
+              </svg>
+              <span>Pathological Foliar Symptoms</span>
+            </h4>
+            <ul class="advisory-list" id="resSymptomsList">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Concentric brown rings encircled by a chlorotic yellow halo on lower leaves</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Basal leaf yellowing with progressive upward defoliation</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Immediate Actionable Precautions & Treatment -->
+          <div class="advisory-block">
+            <h4 class="advisory-block-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>Recommended Farm Treatment</span>
+            </h4>
+            <ul class="advisory-list" id="resPrecautionsList">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                <span id="resOrganicAdvice"><strong>Organic Remedy:</strong> Spray cold-pressed Neem Seed Kernel Extract (5%) or Copper Oxychloride @ 2.5g/L early in the morning.</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                <span id="resCulturalAdvice"><strong>Cultural Practice:</strong> Prune infected bottom foliage up to 30cm high. Mulch with straw to arrest fungal splashback.</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                <span id="resChemicalAdvice"><strong>Chemical Option (If severe):</strong> Apply Azoxystrobin 23% SC @ 1 ml/L or Chlorothalonil 75% WP @ 2 g/L.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary" id="askAssistantAboutDiseaseBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Ask Assistant about this disease</span>
+            </button>
+            <button type="button" class="btn-secondary" id="checkIrrigationFromDiseaseBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+              </svg>
+              <span>Check Irrigation Impact</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- =======================================================
+         SECTION 2: Crop Recommendation (Bonus A)
+         ======================================================= -->
+    <section class="app-section" id="section-crop" role="tabpanel" aria-labelledby="tab-crop">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            <span>Intelligent Agronomic Matching</span>
+          </div>
+          <h2 class="section-title">Crop Recommendation Engine</h2>
+          <p class="section-desc">Based on your evaluated soil pH, moisture profile, and seasonal temperature regime, here are the highest-suitability crops ranked for yield potential and market resilience.</p>
+        </div>
+        <button type="button" class="btn-secondary" id="refreshCropRecsBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M8 16H3v5"/>
+          </svg>
+          <span>Re-compute Recommendations</span>
+        </button>
+      </div>
+
+      <!-- Current Input Parameters Summary Pill -->
+      <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+          <div style="font-size: 0.9rem; color: var(--color-text-main);">
+            Evaluating for: <strong id="cropRecSoilSummary">Loamy Soil • pH 6.4 • Moisture 68% • 27°C</strong>
+          </div>
+          <span class="brand-badge">Optimal Season: Rabi / Winter Cropping</span>
+        </div>
+      </div>
+
+      <!-- Ranked Crops Container -->
+      <div class="grid-2col" id="cropRecommendationsList">
+        <!-- Injected via JavaScript -->
+      </div>
+
+    </section>
+
+    <!-- =======================================================
+         SECTION 3: Smart Irrigation (Bonus B)
+         ======================================================= -->
+    <section class="app-section" id="section-irrigation" role="tabpanel" aria-labelledby="tab-irrigation">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+            </svg>
+            <span>Precision Water Resource Management</span>
+          </div>
+          <h2 class="section-title">Smart Irrigation Advisory</h2>
+          <p class="section-desc">Real-time water scheduling that balances root zone tensiometer readings with hyper-local rainfall probabilities to avoid root anoxia and conserve water.</p>
+        </div>
+      </div>
+
+      <!-- Irrigation Hero Decision Banner -->
+      <div class="irrigation-decision-hero delay" id="irrigationDecisionHero" style="margin-bottom: 1.5rem;">
+        <div class="irrigation-hero-header">
+          <div class="irrigation-icon-circle" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+              <path d="M8 19v2M12 19v2M16 19v2"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-warning);">Current System Decision</div>
+            <div class="irrigation-decision-title" id="irrigationDecisionTitle">NO — Irrigation Delay Advised</div>
+          </div>
+        </div>
+        <p class="irrigation-reasoning-text" id="irrigationReasoningText">
+          Soil moisture currently stands at <strong>68%</strong> (comfortably above the 35% wilting threshold). Rainfall probability is <strong>65%</strong> with 18mm projected within the next 24 hours. Irrigating now will waste approximately 16,500 Liters of water and increase pathogen vulnerability.
+        </p>
+      </div>
+
+      <!-- Telemetry Stats Grid -->
+      <div class="grid-4col" style="margin-bottom: 1.5rem;">
+        <div class="stat-box">
+          <span class="stat-box-label">Current Soil Moisture</span>
+          <span class="stat-box-val" id="irrStatMoisture">68%</span>
+          <span class="stat-box-sub">Critical threshold: 35%</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-box-label">24h Rain Outlook</span>
+          <span class="stat-box-val" id="irrStatRain">65%</span>
+          <span class="stat-box-sub">18 mm precipitation expected</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-box-label">Evapotranspiration</span>
+          <span class="stat-box-val">3.6 mm/d</span>
+          <span class="stat-box-sub">Moderate solar vaporisation</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-box-label">Estimated Water Saved</span>
+          <span class="stat-box-val" style="color: var(--color-primary);">16,500 L</span>
+          <span class="stat-box-sub">Per Acre by pausing drip run</span>
+        </div>
+      </div>
+
+      <!-- Schedule & Automation Card -->
+      <div class="grid-2col">
+        <div class="card">
+          <div class="card-title-bar">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>Automated Schedule Plan</span>
+            </h3>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+              <span style="color: var(--color-text-muted);">Next Suggested Run:</span>
+              <strong id="irrNextWindow">Tomorrow, 8:00 AM (Post-Rain)</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+              <span style="color: var(--color-text-muted);">Recommended Run Time:</span>
+              <strong>0 Minutes (Standby Mode)</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+              <span style="color: var(--color-text-muted);">Delivery Mechanism:</span>
+              <strong>Drip In-line (Valves #1 & #3)</strong>
+            </div>
+            <div style="margin-top: 0.5rem;">
+              <button type="button" class="btn-primary" id="toggleManualIrrigationBtn" style="width: 100%;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+                <span>Override & Trigger 15-Min Test Flush</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title-bar">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+              </svg>
+              <span>Agronomist Water Best Practices</span>
+            </h3>
+          </div>
+          <ul class="advisory-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>Clear drainage discharge furrows in low-lying sectors before showers begin to prevent waterlogging.</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>When resuming irrigation, schedule runs between 5:00 AM and 7:00 AM to minimize evaporative losses by 18%.</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>Do not inject synthetic nitrogen into drip lines prior to forecasted heavy downpours to prevent fertilizer leaching.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =======================================================
+         SECTION 4: Weather-Based Intelligence (Bonus C)
+         ======================================================= -->
+    <section class="app-section" id="section-weather" role="tabpanel" aria-labelledby="tab-weather">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+            <span>Microclimate Telemetry & Radar</span>
+          </div>
+          <h2 class="section-title">Weather-Based Agricultural Intelligence</h2>
+          <p class="section-desc">Actionable farming advisories generated from hyper-local atmospheric sensors, barometric trends, and satellite rain projections.</p>
+        </div>
+      </div>
+
+      <!-- Current Weather Hero Card -->
+      <div class="weather-current-card" style="margin-bottom: 1.5rem;">
+        <div>
+          <div style="font-size: 0.9rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.05em;">Current Field Condition</div>
+          <div class="weather-temp-huge" id="weatherHeroTemp">28°C</div>
+          <p style="font-size: 1.15rem; font-weight: 600; margin-top: 0.25rem;" id="weatherHeroDesc">Partly Cloudy with Approaching Showers</p>
+          <p style="font-size: 0.85rem; opacity: 0.8; margin-top: 0.2rem;" id="weatherHeroLocation">Station: Nashik Valley, MH • Sensor Node #3</p>
+        </div>
+
+        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+          <div style="text-align: center;">
+            <div style="font-size: 0.8rem; opacity: 0.8;">Humidity</div>
+            <div style="font-size: 1.4rem; font-weight: 800;" id="weatherHeroHumidity">74%</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 0.8rem; opacity: 0.8;">Rain Prob (24h)</div>
+            <div style="font-size: 1.4rem; font-weight: 800;" id="weatherHeroRain">65%</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 0.8rem; opacity: 0.8;">Wind Speed</div>
+            <div style="font-size: 1.4rem; font-weight: 800;" id="weatherHeroWind">14 km/h</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-size: 0.8rem; opacity: 0.8;">UV Index</div>
+            <div style="font-size: 1.4rem; font-weight: 800;">5 (Moderate)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Recommendation Banners -->
+      <div style="margin-bottom: 1.5rem;">
+        <h3 style="margin-bottom: 0.85rem; font-size: 1.15rem;">Priority Field Action Banners</h3>
+        <div class="weather-action-banners" id="weatherActionBannersContainer">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+
+      <!-- 5-Day Agro Forecast -->
+      <div>
+        <h3 style="margin-bottom: 0.85rem; font-size: 1.15rem;">5-Day Agricultural Weather Outlook</h3>
+        <div class="grid-4col" id="weatherForecastContainer" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =======================================================
+         SECTION 5: Sustainability Score (Bonus D)
+         ======================================================= -->
+    <section class="app-section" id="section-sustainability" role="tabpanel" aria-labelledby="tab-sustainability">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="m4.93 4.93 4.24 4.24"/>
+              <path d="m14.83 9.17 4.24-4.24"/>
+              <path d="M12 2v20"/>
+            </svg>
+            <span>Eco-Efficiency & Regeneration</span>
+          </div>
+          <h2 class="section-title">Farm Sustainability Score</h2>
+          <p class="section-desc">Holistic index evaluating water preservation efficiency, organic soil enrichment, carbon footprint, and beneficial biodiversity.</p>
+        </div>
+      </div>
+
+      <!-- Sustainability Hero Card with Circular Gauge -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="sustainability-hero">
+          
+          <!-- Circular Gauge -->
+          <div class="gauge-wrapper" aria-label="Sustainability Score Gauge: 84 out of 100">
+            <svg class="gauge-svg" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="gauge-bg-circle" cx="60" cy="60" r="50"/>
+              <circle class="gauge-progress-circle" id="sustainabilityGaugeCircle" cx="60" cy="60" r="50"
+                      stroke-dasharray="314.159" stroke-dashoffset="50.2"/>
+            </svg>
+            <div class="gauge-inner-text">
+              <div class="gauge-score-number" id="sustainabilityScoreNum">84</div>
+              <div class="gauge-score-label">out of 100</div>
+            </div>
+          </div>
+
+          <div style="max-width: 600px;">
+            <span class="brand-badge" style="margin-bottom: 0.5rem; display: inline-block;">Tier 1: Eco-Certified Leader</span>
+            <h3 style="font-size: 1.6rem; color: var(--color-primary-dark); margin-bottom: 0.4rem;">Top 14% Regional Eco-Efficiency</h3>
+            <p style="font-size: 1rem; line-height: 1.6;">Your smart irrigation schedule and balanced organic bio-inputs have prevented over <strong>48,000 Litres</strong> of excess groundwater withdrawal this month while increasing soil organic carbon by <strong>0.78%</strong>.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 4 Pillar Breakdown Cards -->
+      <h3 style="margin-bottom: 0.85rem; font-size: 1.15rem;">Sustainability Pillar Breakdown</h3>
+      <div class="grid-4col" id="sustainabilityPillarsContainer" style="margin-bottom: 1.75rem;">
+        <!-- Injected via JS -->
+      </div>
+
+      <!-- 3 Improvement Suggestions -->
+      <h3 style="margin-bottom: 0.85rem; font-size: 1.15rem;">Prioritized Improvement Opportunities</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.85rem;" id="sustainabilitySuggestionsContainer">
+        <!-- Injected via JS -->
+      </div>
+
+    </section>
+
+    <!-- =======================================================
+         SECTION 6: Farmer Assistant (Bonus E)
+         ======================================================= -->
+    <section class="app-section" id="section-assistant" role="tabpanel" aria-labelledby="tab-assistant">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Conversational Field AI</span>
+          </div>
+          <h2 class="section-title">Farmer Assistant (Multilingual)</h2>
+          <p class="section-desc">Ask questions in plain language regarding pest management, organic fertilizer formulations, spray schedules, or harvest timing.</p>
+        </div>
+      </div>
+
+      <div class="chat-container">
+        
+        <!-- Chat Header -->
+        <div class="chat-header">
+          <div class="chat-assistant-meta">
+            <div class="chat-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.95rem;">AgriSmart Advisory Bot</div>
+              <div style="font-size: 0.76rem; color: var(--color-primary); font-weight: 600;">● Online • Agricultural Knowledge Graph v3</div>
+            </div>
+          </div>
+
+          <!-- Language Selector -->
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="assistantLanguageSelect" style="font-size: 0.82rem; font-weight: 600; color: var(--color-text-muted);">Language:</label>
+            <select id="assistantLanguageSelect" class="chat-lang-select" aria-label="Choose Assistant Language">
+              <option value="en" selected>English</option>
+              <option value="hi">हिंदी (Hindi)</option>
+              <option value="mr">मराठी (Marathi)</option>
+              <option value="te">తెలుగు (Telugu)</option>
+              <option value="es">Español (Spanish)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Chat Stream Messages -->
+        <div class="chat-messages" id="chatMessagesStream" role="log" aria-live="polite">
+          <!-- Initial bot welcome message -->
+          <div class="chat-bubble bot">
+            <div>
+              Namaste! I am your <strong>AgriSmart AI Assistant</strong>. 
+              How can I support your crops today? You can ask me about organic remedies, fertilizer dosages, or irrigation decisions.
+            </div>
+            <div class="chat-time">Just now</div>
+          </div>
+        </div>
+
+        <!-- Quick Prompt Suggestion Chips -->
+        <div class="chat-suggestions-bar" aria-label="Suggested Prompts">
+          <button type="button" class="chat-prompt-chip" data-prompt="How do I treat tomato early blight organically?">
+            🌿 Treat early blight organically
+          </button>
+          <button type="button" class="chat-prompt-chip" data-prompt="What fertilizer should I apply at flowering stage?">
+            🌸 Best fertilizer for flowering
+          </button>
+          <button type="button" class="chat-prompt-chip" data-prompt="Should I irrigate today with rain forecasted?">
+            💧 Irrigation with rain forecast
+          </button>
+          <button type="button" class="chat-prompt-chip" data-prompt="How to protect crops from sucking pests?">
+            🐛 Sucking pest management
+          </button>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <form class="chat-input-row" id="chatInputForm">
+          <input type="text" id="chatInputField" class="chat-input" placeholder="Type your farming question here... (e.g., 'How to mix neem spray?')" autocomplete="off" required aria-label="Farmer Assistant Query">
+          <button type="submit" class="chat-send-btn" id="chatSendBtn" aria-label="Send message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="20" height="20">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </form>
+
+      </div>
+
+    </section>
+
+    <!-- =======================================================
+         SECTION 7: Agentic Advisor Feed (Bonus G)
+         ======================================================= -->
+    <section class="app-section" id="section-agentic" role="tabpanel" aria-labelledby="tab-agentic">
+      
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <div class="section-eyebrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <path d="M12 8V4H8"/>
+              <rect width="16" height="12" x="4" y="8" rx="2"/>
+              <path d="M2 14h2"/>
+              <path d="M20 14h2"/>
+              <path d="M15 13v2"/>
+              <path d="M9 13v2"/>
+            </svg>
+            <span>Autonomous AI Operations</span>
+          </div>
+          <h2 class="section-title">Autonomous Agentic Activity Feed</h2>
+          <p class="section-desc">A live telemetry log of autonomous decisions, sensor triggers, valve automations, and risk alerts dispatched by the AgriSmart background agent.</p>
+        </div>
+        <button type="button" class="btn-primary" id="triggerAgentCycleBtn" style="width: auto;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18" aria-hidden="true">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span>Trigger Agent Check Now</span>
+        </button>
+      </div>
+
+      <!-- Feed Controls & Filter Chips -->
+      <div class="feed-controls-bar">
+        <div class="feed-filter-chips" id="agenticFilterChips" role="group" aria-label="Filter events by category">
+          <button type="button" class="feed-filter-btn active" data-filter="all">All Events</button>
+          <button type="button" class="feed-filter-btn" data-filter="autonomous">Autonomous Actions</button>
+          <button type="button" class="feed-filter-btn" data-filter="alert">Risk Alerts</button>
+          <button type="button" class="feed-filter-btn" data-filter="routine">Sensor Calibrations</button>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--color-text-muted);" id="feedCountLabel">Showing 4 recorded events</div>
+      </div>
+
+      <!-- Timeline Container -->
+      <div class="timeline-container" id="agenticTimelineContainer" aria-live="polite">
+        <!-- Injected via JavaScript -->
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ================= Mobile Bottom Navigation Bar ================= -->
+  <nav class="mobile-bottom-nav" role="navigation" aria-label="Mobile Bottom Navigation">
+    <button type="button" class="mobile-nav-item active" data-section="section-disease" aria-label="Go to Disease Detection">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+      </svg>
+      <span>Detect</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-section="section-crop" aria-label="Go to Crop Recommendation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+      <span>Crops</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-section="section-irrigation" aria-label="Go to Smart Irrigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+      </svg>
+      <span>Irrigation</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-section="section-assistant" aria-label="Go to Farmer Assistant">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span>Assistant</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-section="section-agentic" aria-label="Go to Agent Feed">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect width="16" height="12" x="4" y="8" rx="2"/>
+      </svg>
+      <span>Agent</span>
+    </button>
+  </nav>
+
+  <!-- ================= Toast Notification Container ================= -->
+  <div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
+
+  <!-- ================= App Footer ================= -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <p><strong>AgriSmart AI</strong> — Autonomous Smart Agriculture Decision System.</p>
+      <p style="font-size: 0.78rem; opacity: 0.8;">Modular Vanilla Architecture • Ready for Backend & ML Pipeline Integration via <code>api.js</code>.</p>
+    </div>
+  </footer>
+
+  <!-- Scripts (Loaded in dependency order: Mock Data -> API Layer -> App Controller) -->
+  <script src="js/mock-data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
