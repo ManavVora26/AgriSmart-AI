@@ -25,6 +25,16 @@ async function predictDisease(imageFile, farmContext = {}) {
         formData.append('image', imageFile, imageFile.name || 'leaf_sample.jpg');
       } else if (imageFile?.file instanceof File) {
         formData.append('image', imageFile.file, imageFile.file.name);
+      } else if (imageFile?.presetKey) {
+        try {
+          const sampleRes = await fetch(`assets/samples/${imageFile.presetKey}.jpg`);
+          if (sampleRes.ok) {
+            const blob = await sampleRes.blob();
+            formData.append('image', blob, `${imageFile.presetKey}.jpg`);
+          }
+        } catch (e) {
+          console.warn('Could not load sample preset asset:', e);
+        }
       }
       formData.append('crop_type', farmContext.cropType || 'Tomato');
       formData.append('growth_stage', farmContext.growthStage || 'Vegetative');

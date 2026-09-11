@@ -436,6 +436,19 @@ document.addEventListener('DOMContentLoaded', () => {
       state.selectedSamplePreset = presetKey;
       state.selectedImageFile = { name: preset.imageLabel, isPreset: true, presetKey };
 
+      const sampleImgUrl = `assets/samples/${presetKey}.jpg`;
+      fetch(sampleImgUrl)
+        .then(res => {
+          if (!res.ok) throw new Error('Specimen image not found');
+          return res.blob();
+        })
+        .then(blob => {
+          state.selectedImageFile = new File([blob], `${presetKey}.jpg`, { type: 'image/jpeg' });
+        })
+        .catch(err => {
+          console.warn('Using specimen placeholder:', err);
+        });
+
       // Auto-fill farm context form from preset
       const cropSelect = document.getElementById('cropTypeSelect');
       const stageSelect = document.getElementById('growthStageSelect');
@@ -466,10 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       updateHeaderWeather();
 
-      // Show sample preview SVG
-      previewThumbnailWrap.innerHTML = generateSampleLeafSVG(preset.svgType, preset.isDiseased);
-      previewFilename.textContent = preset.name;
-      previewMeta.textContent = `${preset.crop} • Auto-calibrated test specimen`;
+      // Show sample preview photo with SVG fallback
+      previewThumbnailWrap.innerHTML = `<img src="${sampleImgUrl}" alt="${preset.name}" class="preview-thumbnail" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+      previewFilename.textContent = `${preset.name} (Live Specimen)`;
+      previewMeta.textContent = `${preset.crop} • Auto-calibrated test photo • Ready for ML scan`;
       imagePreviewCard.classList.add('visible');
 
       showToast(`Selected ${preset.name} test sample`, 'success');
@@ -506,6 +519,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (farmContextForm) {
     farmContextForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await runDiseaseAnalysis();
+    });
+  }
+
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       await runDiseaseAnalysis();
     });
@@ -620,6 +640,29 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           chemicalAdvice.parentElement.style.display = 'none';
         }
+      }
+    }
+
+    // Render Real Model Differentials & Model Badge
+    const top3Container = document.getElementById('resTop3Container');
+    const top3List = document.getElementById('resTop3List');
+    const modelBadge = document.getElementById('resModelBadge');
+
+    if (top3Container && top3List) {
+      if (result.top_3 && result.top_3.length > 0) {
+        top3Container.style.display = 'block';
+        if (modelBadge) {
+          modelBadge.textContent = (result.model_mode === 'real')
+            ? '⚡ Real PyTorch Model (38 Classes)'
+            : '🧪 Simulated Mode';
+        }
+        top3List.innerHTML = result.top_3.map((item, idx) => `
+          <span style="background: rgba(46,125,50,0.07); border: 1px solid var(--color-border); padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;">
+            <strong style="color: var(--color-primary);">${idx + 1}.</strong> ${item.display_name}: <strong>${item.confidence}%</strong>
+          </span>
+        `).join('');
+      } else {
+        top3Container.style.display = 'none';
       }
     }
   }

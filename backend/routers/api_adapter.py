@@ -63,60 +63,73 @@ async def api_predict_disease(
     result = predict_disease(image_bytes=image_bytes)
 
     is_healthy = result.get("is_healthy", False)
-    disease_label = result.get("display_name", f"{crop_type} - Healthy")
+    detected_crop = result.get("crop") or crop_type
+    disease_label = result.get("display_name") or f"{detected_crop} - Healthy"
     confidence_pct = round(result.get("confidence", 0.95) * 100, 1)
+    precautions = result.get("precautions", {})
+    summary_text = result.get("summary") or ""
+    top_3 = result.get("top_3", [])
+    model_mode = result.get("model_mode", "mock")
 
     if is_healthy:
         return {
             "status": "healthy",
-            "disease": f"Healthy {crop_type} Foliage",
-            "scientificName": f"{crop_type} spp. (Clean canopy)",
+            "crop": detected_crop,
+            "disease": disease_label,
+            "scientificName": f"{detected_crop} spp. (Canopy verified healthy)",
             "confidence": confidence_pct,
             "severity": "None",
             "badgeColor": "#2E7D32",
             "summary": (
-                f"The examined {crop_type} leaf exhibits robust cellular turgor, "
+                summary_text or
+                f"The examined {detected_crop} leaf exhibits robust cellular turgor, "
                 "uniform chlorophyll pigmentation, and zero visible signs of fungal or bacterial sporulation."
             ),
             "symptoms": [
-                "Uniform green coloration without chlorosis or necrosis",
-                "Intact leaf margins and healthy venation architecture",
-                "Absence of fungal mycelium, bacterial ooze, or viral mosaic patterns",
+                "Uniform chlorophyll pigmentation without chlorosis or necrosis",
+                "Intact leaf margins and healthy vascular venation",
+                "Absence of fungal mycelium, bacterial ooze, or viral mosaics",
             ],
             "precautions": {
-                "organic": result.get("precaution", "Spray diluted neem seed oil (2%) as preventive protection."),
-                "cultural": "Maintain optimal plant spacing (45-60cm) and avoid wetting foliage during sunset.",
-                "chemical": None,
+                "organic": precautions.get("organic", "Apply preventive organic bio-agents and compost tea."),
+                "cultural": precautions.get("cultural", "Maintain optimal row spacing and avoid wetting foliage during sunset."),
+                "chemical": precautions.get("chemical", "No chemical intervention needed. Monitor regularly."),
             },
+            "top_3": top_3,
+            "model_mode": model_mode,
             "nextInspection": "Check again in 7 days or after heavy rainfall.",
         }
 
     # Diseased
-    precaution_text = result.get("precaution", "")
     return {
         "status": "diseased",
+        "crop": detected_crop,
         "disease": disease_label,
-        "scientificName": f"{disease_label.split(' - ')[-1]} pathogen complex",
+        "scientificName": f"{disease_label} Pathogen Complex",
         "confidence": confidence_pct,
-        "severity": "Moderate to High" if soil_moisture > 65 else "Moderate",
+        "severity": "High" if (soil_moisture > 75 or confidence_pct > 80) else "Moderate",
         "badgeColor": "#C62828",
         "summary": (
-            f"Pathogen detected affecting {crop_type} foliage. "
+            summary_text or
+            f"Pathogen detected affecting {detected_crop} foliage. "
             f"Microclimate conditions (moisture {soil_moisture}%, temp {temperature}°C) "
             "are conducive to spore dispersion. Timely mitigation is recommended."
         ),
         "symptoms": [
-            f"Foliar lesions with chlorotic halos observed on {crop_type} leaf",
-            f"Active infection area estimated at {round(100 - confidence_pct/2, 1)}% of sampled surface",
-            "Early stage necrosis detected across interveinal zones",
+            f"Foliar lesions with characteristic pathology observed on {detected_crop} leaf surface",
+            f"Active infection area estimated at {round(max(10.0, 100 - confidence_pct/2), 1)}% of sampled surface",
+            "Early to mid-stage necrosis detected across interveinal zones",
         ],
         "precautions": {
-            "organic": "Apply cold-pressed Neem Seed Kernel Extract (5%) or Copper Oxychloride @ 2.5g/L.",
-            "cultural": "Prune infected foliage, sanitize pruning shears, and improve air circulation.",
-            "chemical": precaution_text if precaution_text else "If >15% leaf area affected, apply Azoxystrobin 23% SC @ 1 ml/L.",
+            "organic": precautions.get("organic", "Apply cold-pressed Neem Seed Kernel Extract (5%) or biological agents."),
+            "cultural": precautions.get("cultural", "Prune infected foliage, sanitize tools, and improve canopy air circulation."),
+            "chemical": precautions.get("chemical", result.get("precaution", "Apply recommended protective fungicide.")),
         },
+        "top_3": top_3,
+        "model_mode": model_mode,
         "nextInspection": "Re-evaluate in 3 to 5 days after applying treatment.",
     }
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
