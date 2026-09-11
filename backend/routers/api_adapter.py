@@ -12,7 +12,13 @@ from fastapi import APIRouter, UploadFile, File, Form, Query, HTTPException, Bod
 from pydantic import BaseModel, Field
 
 from services.disease_service import predict_disease
-from services.weather_service import get_weather, generate_weather_actions
+from services.weather_service import (
+    get_weather,
+    generate_weather_actions,
+    geocode_location,
+    reverse_geocode,
+    get_ip_location,
+)
 from services.crop_service import recommend_crop as service_recommend_crop
 from services.irrigation_service import decide_irrigation
 from services.sustainability_service import compute_sustainability
@@ -257,18 +263,44 @@ async def api_recommend_crop(req: FrontendCropRequest):
 @router.get(
     "/irrigation/advice",
     summary="Smart Irrigation Advice (Frontend format)",
-    description="Computes irrigation need and optimal scheduling from telemetry query params.",
+    description="Computes irrigation need and optimal scheduling from telemetry query params or live location.",
 )
 async def api_irrigation_advice(
     moisture: float = Query(42.0, description="Soil moisture percentage"),
-    rain_prob: float = Query(65.0, description="24-hour rain probability"),
-    temp: float = Query(28.0, description="Temperature in Celsius"),
+    rain_prob: Optional[float] = Query(None, description="24-hour rain probability"),
+    temp: Optional[float] = Query(None, description="Temperature in Celsius"),
     crop: str = Query("Tomato", description="Crop type"),
     soil_type: str = Query("Loamy", description="Soil type"),
+    lat: Optional[float] = Query(None, description="Latitude"),
+    lon: Optional[float] = Query(None, description="Longitude"),
+    location: Optional[str] = Query(None, description="Location name"),
 ):
+    # If live weather params are missing, resolve from coordinates if available
+    resolved_lat, resolved_lon = lat, lon
+    resolved_location = location or "Current Farm"
+
+    if (rain_prob is None or temp is None) and (resolved_lat is not None or location is not None):
+        try:
+            if resolved_lat is None and location:
+                geo = await geocode_location(location)
+                resolved_lat, resolved_lon = geo.get("latitude"), geo.get("longitude")
+                resolved_location = geo.get("display_name", location)
+            
+            if resolved_lat is not None and resolved_lon is not None:
+                live_w = await get_weather(resolved_lat, resolved_lon)
+                if rain_prob is None:
+                    rain_prob = live_w.get("precipitation_probability_24h", 35.0)
+                if temp is None:
+                    temp = live_w.get("temperature", 28.0)
+        except Exception as e:
+            logger.warning(f"Failed to fetch live weather for irrigation: {e}")
+
+    effective_rain_prob = rain_prob if rain_prob is not None else 35.0
+    effective_temp = temp if temp is not None else 28.0
+
     mock_weather = {
-        "precipitation_probability_24h": rain_prob,
-        "temperature": temp,
+        "precipitation_probability_24h": effective_rain_prob,
+        "temperature": effective_temp,
     }
 
     res = decide_irrigation(
@@ -280,10 +312,10 @@ async def api_irrigation_advice(
 
     needed = res.get("irrigate", False)
 
-    if rain_prob >= 60 and moisture > 35:
-        decision = f"Irrigation Delayed — Rain Incoming ({int(rain_prob)}%)"
+    if effective_rain_prob >= 60 and moisture > 35:
+        decision = f"Irrigation Delayed — Rain Incoming ({int(effective_rain_prob)}%)"
         reasoning = (
-            f"Upcoming precipitation forecast of <strong>{int(rain_prob)}%</strong> is expected within the next 24 hours. "
+            f"Upcoming precipitation forecast of <strong>{int(effective_rain_prob)}%</strong> is expected within the next 24 hours at {resolved_location}. "
             f"Current soil moisture ({moisture}%) is above critical threshold for {crop}. "
             "Postponing irrigation will conserve water and prevent waterlogging root stress."
         )
@@ -292,7 +324,7 @@ async def api_irrigation_advice(
         decision = "Irrigation Required — Apply 3.5 L/m²"
         reasoning = (
             f"Soil moisture ({moisture}%) has dropped below optimal threshold for {crop}. "
-            f"With temperature at {temp}°C and low rain probability ({int(rain_prob)}%), "
+            f"With temperature at {effective_temp}°C and low rain probability ({int(effective_rain_prob)}%) at {resolved_location}, "
             "scheduled drip irrigation is recommended to prevent drought stress."
         )
         optimal_window = "Early Morning (05:30 AM – 08:00 AM)"
@@ -300,7 +332,7 @@ async def api_irrigation_advice(
         decision = f"Soil Moisture Optimal ({moisture}%)"
         reasoning = (
             f"Current soil moisture ({moisture}%) is well within the healthy turgor range for {crop} ({soil_type} soil). "
-            "No active irrigation needed at this moment."
+            f"Local conditions at {resolved_location} are stable. No active irrigation needed at this moment."
         )
         optimal_window = "Next scheduled check in 12 hours"
 
@@ -310,9 +342,10 @@ async def api_irrigation_advice(
         "reasoning": reasoning,
         "metrics": {
             "soilMoisture": moisture,
-            "rainForecast24h": f"{int(rain_prob)}% ({'8-12 mm' if rain_prob > 50 else '<2 mm'})",
-            "temperature": temp,
+            "rainForecast24h": f"{int(effective_rain_prob)}% ({'8-12 mm' if effective_rain_prob > 50 else '<2 mm'})",
+            "temperature": effective_temp,
             "crop": crop,
+            "location": resolved_location,
         },
         "schedule": {
             "optimalWindow": optimal_window,
@@ -322,34 +355,89 @@ async def api_irrigation_advice(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 3.5 Location Intelligence (/api/location/*)
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get(
+    "/location/current",
+    summary="Detect Current Location",
+    description="Returns user approximate farm location from IP address as a zero-friction fallback.",
+)
+async def api_location_current():
+    return await get_ip_location()
+
+
+@router.get(
+    "/location/search",
+    summary="Search & Autocomplete Farm Locations",
+    description="Geocodes any village, town, or city name into coordinates.",
+)
+async def api_location_search(query: str = Query(..., description="City or district name")):
+    return await geocode_location(query)
+
+
+@router.get(
+    "/location/reverse",
+    summary="Reverse Geocode Coordinates",
+    description="Converts GPS latitude and longitude into human-readable city and state.",
+)
+async def api_location_reverse(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude")
+):
+    return await reverse_geocode(lat, lon)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 4. Weather Intelligence (/api/weather/advisory)
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get(
     "/weather/advisory",
     summary="Weather Intelligence (Frontend format)",
-    description="Returns real-time weather, prioritized farmer action banners, and 5-day forecast.",
+    description="Returns real-time weather, prioritized farmer action banners, and 5-day forecast for any location.",
 )
 async def api_weather_advisory(
-    location: str = Query("Nashik Valley, MH", description="Location name or coordinates"),
+    location: Optional[str] = Query(None, description="Location name or coordinates"),
+    lat: Optional[float] = Query(None, description="Latitude"),
+    lon: Optional[float] = Query(None, description="Longitude"),
 ):
-    lat, lon = 19.9975, 73.7898  # Nashik coords
+    resolved_lat = lat
+    resolved_lon = lon
+    resolved_loc = location
+
+    # Coordinate resolution logic
+    if resolved_lat is not None and resolved_lon is not None:
+        if not resolved_loc or resolved_loc.lower() in {"gps", "current", "auto"}:
+            rev = await reverse_geocode(resolved_lat, resolved_lon)
+            resolved_loc = rev.get("display_name") or f"{resolved_lat:.2f}°N, {resolved_lon:.2f}°E"
+    elif resolved_loc:
+        geo = await geocode_location(resolved_loc)
+        resolved_lat = geo.get("latitude", 21.1981)
+        resolved_lon = geo.get("longitude", 72.8298)
+        resolved_loc = geo.get("display_name", resolved_loc)
+    else:
+        ip_loc = await get_ip_location()
+        resolved_lat = ip_loc.get("latitude", 21.1981)
+        resolved_lon = ip_loc.get("longitude", 72.8298)
+        resolved_loc = ip_loc.get("display_name", "Surat, Gujarat")
+
     try:
-        live = await get_weather(lat=lat, lon=lon)
+        live = await get_weather(lat=resolved_lat, lon=resolved_lon, forecast_days=5)
     except Exception as e:
-        logger.warning(f"Live weather fallback: {e}")
+        logger.warning(f"Live weather fallback for {resolved_loc}: {e}")
         live = {
             "temperature": 28.4,
             "humidity": 68.0,
             "wind_speed": 14.2,
-            "precipitation_probability_24h": 65.0,
-            "weather_code": 61,
-            "weather_description": "Moderate Rain Showers",
+            "precipitation_probability_24h": 45.0,
+            "weather_code": 1,
+            "weather_description": "Mainly clear",
+            "daily_forecast": [],
         }
 
     temp = round(live.get("temperature", 28.0), 1)
     humidity = round(live.get("humidity", 65.0), 1)
     wind = round(live.get("wind_speed", 12.0), 1)
-    rain_prob = int(live.get("precipitation_probability_24h", 60))
+    rain_prob = int(live.get("precipitation_probability_24h", 35))
     cond = live.get("weather_description", "Partly Cloudy")
 
     action_banners = []
@@ -359,16 +447,23 @@ async def api_weather_advisory(
             "icon": "rain",
             "title": "Evening Precipitation & Disease Watch",
             "description": (
-                f"Elevated humidity ({humidity}%) combined with {rain_prob}% rain probability creates ideal conditions "
-                "for fungal sporulation (blight/mildew). Ensure drainage furrows are clear."
+                f"Elevated humidity ({humidity}%) combined with {rain_prob}% rain probability in {resolved_loc} "
+                "creates ideal conditions for fungal sporulation (blight/mildew). Ensure drainage furrows are clear."
             ),
+        })
+    elif temp >= 34:
+        action_banners.append({
+            "level": "warning",
+            "icon": "sun",
+            "title": "Heat Stress Advisory",
+            "description": f"Elevated temperature ({temp}°C) in {resolved_loc}. Irrigate during cooler early morning hours to mitigate evapotranspiration loss.",
         })
     else:
         action_banners.append({
             "level": "info",
             "icon": "sun",
             "title": "Optimal Field Operation Window",
-            "description": "Clear skies and moderate temperature provide favorable conditions for intercultural tillage and weeding.",
+            "description": f"Favorable conditions in {resolved_loc} for intercultural tillage, weeding, and inspection.",
         })
 
     action_banners.append({
@@ -378,56 +473,63 @@ async def api_weather_advisory(
         "description": f"Spray operations are ideal between 07:00 AM and 10:30 AM before wind speeds reach {wind} km/h.",
     })
 
-    forecast = [
-        {
-            "day": "Today",
-            "date": datetime.now().strftime("%d %b"),
-            "icon": "cloud-rain" if rain_prob > 40 else "cloud-sun",
-            "tempHigh": round(temp + 2),
-            "tempLow": round(temp - 6),
-            "rainProb": rain_prob,
-            "advisory": "Delay chemical sprays; verify drainage channels are unclogged.",
-        },
-        {
-            "day": "Tomorrow",
-            "date": "+1 Day",
-            "icon": "rain",
-            "tempHigh": round(temp + 1),
-            "tempLow": round(temp - 7),
-            "rainProb": max(20, rain_prob - 15),
-            "advisory": "Scout bottom leaves for water-soaked fungal spots post-rain.",
-        },
-        {
-            "day": "Day 3",
-            "date": "+2 Days",
-            "icon": "cloud-sun",
-            "tempHigh": round(temp + 3),
-            "tempLow": round(temp - 5),
-            "rainProb": 25,
-            "advisory": "Ideal window for bio-fertilizer soil drenching.",
-        },
-        {
-            "day": "Day 4",
-            "date": "+3 Days",
-            "icon": "sun",
-            "tempHigh": round(temp + 4),
-            "tempLow": round(temp - 5),
-            "rainProb": 15,
-            "advisory": "Clear skies. Resume standard drip fertigation schedule.",
-        },
-        {
-            "day": "Day 5",
-            "date": "+4 Days",
-            "icon": "sun",
-            "tempHigh": round(temp + 5),
-            "tempLow": round(temp - 4),
-            "rainProb": 10,
-            "advisory": "Optimal solar radiation index for fruit maturation.",
-        },
-    ]
+    # Use live daily forecast if available, or generate dynamic forecast
+    daily_list = live.get("daily_forecast") or []
+    if daily_list:
+        forecast = daily_list
+    else:
+        forecast = [
+            {
+                "day": "Today",
+                "date": datetime.now().strftime("%d %b"),
+                "icon": "cloud-rain" if rain_prob > 40 else "cloud-sun",
+                "tempHigh": round(temp + 2),
+                "tempLow": round(temp - 6),
+                "rainProb": rain_prob,
+                "advisory": "Delay chemical sprays; verify drainage channels are unclogged.",
+            },
+            {
+                "day": "Tomorrow",
+                "date": "+1 Day",
+                "icon": "rain",
+                "tempHigh": round(temp + 1),
+                "tempLow": round(temp - 7),
+                "rainProb": max(15, rain_prob - 10),
+                "advisory": "Scout bottom leaves for water-soaked fungal spots post-rain.",
+            },
+            {
+                "day": "Day 3",
+                "date": "+2 Days",
+                "icon": "cloud-sun",
+                "tempHigh": round(temp + 3),
+                "tempLow": round(temp - 5),
+                "rainProb": 25,
+                "advisory": "Ideal window for bio-fertilizer soil drenching.",
+            },
+            {
+                "day": "Day 4",
+                "date": "+3 Days",
+                "icon": "sun",
+                "tempHigh": round(temp + 4),
+                "tempLow": round(temp - 5),
+                "rainProb": 15,
+                "advisory": "Clear skies. Resume standard drip fertigation schedule.",
+            },
+            {
+                "day": "Day 5",
+                "date": "+4 Days",
+                "icon": "sun",
+                "tempHigh": round(temp + 5),
+                "tempLow": round(temp - 4),
+                "rainProb": 10,
+                "advisory": "Optimal solar radiation index for fruit maturation.",
+            },
+        ]
 
     return {
-        "location": location,
+        "location": resolved_loc,
+        "latitude": resolved_lat,
+        "longitude": resolved_lon,
         "current": {
             "temp": temp,
             "condition": cond,
@@ -543,6 +645,11 @@ class FrontendChatRequest(BaseModel):
     query: str
     language: Optional[str] = "en"
     session_id: Optional[str] = "default-session"
+    location: Optional[str] = None
+    weather_summary: Optional[str] = None
+    crop: Optional[str] = None
+    disease_detected: Optional[str] = None
+    irrigation_advice: Optional[str] = None
 
 
 @router.post(
@@ -551,10 +658,17 @@ class FrontendChatRequest(BaseModel):
     description="Conversational plain-language agricultural assistant with multi-lingual support.",
 )
 async def api_assistant_chat(req: FrontendChatRequest):
+    context = {
+        "location": req.location,
+        "weather_summary": req.weather_summary,
+        "crop": req.crop,
+        "disease_detected": req.disease_detected,
+        "irrigation_advice": req.irrigation_advice,
+    }
     res = await get_assistant_response(
         question=req.query,
         language=req.language or "en",
-        context=None,
+        context=context,
     )
 
     return {

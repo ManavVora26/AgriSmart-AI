@@ -123,6 +123,12 @@ app.include_router(sustainability.router)
 app.include_router(assistant.router)
 app.include_router(api_adapter.router)  # Frontend Web Adapter (matches /api/*)
 
+from fastapi.staticfiles import StaticFiles
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+if os.path.exists(frontend_dir):
+    app.mount("/frontend", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+    logger.info(f"Mounted static frontend from {frontend_dir} at /frontend")
+
 
 # ─── Health Check ───────────────────────────────────────────────────────────────
 @app.get(

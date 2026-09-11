@@ -16,8 +16,211 @@ document.addEventListener('DOMContentLoaded', () => {
     currentWeather: null,
     currentIrrigation: null,
     agenticEvents: [],
-    activeAgentFilter: 'all'
+    activeAgentFilter: 'all',
+    currentLocation: {
+      name: 'Surat',
+      displayName: 'Surat, Gujarat',
+      lat: 21.1981,
+      lon: 72.8298,
+      source: 'Auto IP Network'
+    }
   };
+
+  /* ==========================================================
+     0. Live Location Tracking & Multi-Module Sync Controller
+     ========================================================== */
+  const headerLocationBtn = document.getElementById('headerLocationBtn');
+  const headerLocationText = document.getElementById('headerLocationText');
+  const headerWeatherVal = document.getElementById('headerWeatherVal');
+  const headerMoistureVal = document.getElementById('headerMoistureVal');
+  const locationInput = document.getElementById('locationInput');
+  const detectGpsBtn = document.getElementById('detectGpsBtn');
+  const locationStatusBadge = document.getElementById('locationStatusBadge');
+  const weatherHeroLocation = document.getElementById('weatherHeroLocation');
+  const phInput = document.getElementById('phInput');
+  const phDisplay = document.getElementById('phDisplay');
+  const moistureInput = document.getElementById('moistureInput');
+  const moistureDisplay = document.getElementById('moistureDisplay');
+  const tempInput = document.getElementById('tempInput');
+  const tempDisplay = document.getElementById('tempDisplay');
+  const rainProbInput = document.getElementById('rainProbInput');
+  const rainProbDisplay = document.getElementById('rainProbDisplay');
+
+  // Broadcast location update across all full-stack modules
+  async function applyLocationUpdate(locationObj, isUserGesture = false) {
+    if (!locationObj) return;
+    state.currentLocation = locationObj;
+    window.currentFarmLocation = locationObj;
+
+    // 1. Update UI Elements
+    if (headerLocationText) {
+      headerLocationText.textContent = locationObj.displayName || `${locationObj.lat.toFixed(2)}°N, ${locationObj.lon.toFixed(2)}°E`;
+    }
+    if (locationInput) {
+      locationInput.value = locationObj.displayName;
+    }
+    if (weatherHeroLocation) {
+      weatherHeroLocation.textContent = `Station: ${locationObj.displayName} (${locationObj.lat.toFixed(2)}°N, ${locationObj.lon.toFixed(2)}°E) • Live Telemetry`;
+    }
+    if (locationStatusBadge) {
+      const isGps = locationObj.source && locationObj.source.includes('GPS');
+      locationStatusBadge.textContent = isGps ? '● Live GPS Active' : '● Auto Network Active';
+      locationStatusBadge.style.color = '#2E7D32';
+    }
+
+    if (isUserGesture) {
+      showToast(`Location set to ${locationObj.displayName}`, 'success');
+    }
+
+    // 2. Fetch and render Live Weather for exact coordinates
+    await loadWeatherAdvice(locationObj.displayName, locationObj.lat, locationObj.lon);
+
+    // 3. Sync Disease Form sliders to live ambient values
+    if (state.currentWeather && state.currentWeather.current) {
+      const curTemp = Math.round(state.currentWeather.current.temp);
+      const curRain = state.currentWeather.current.rainProb;
+      if (tempInput) {
+        tempInput.value = curTemp;
+        const tempDisplay = document.getElementById('tempDisplay');
+        if (tempDisplay) tempDisplay.textContent = `${curTemp}°C`;
+      }
+      if (rainProbInput) {
+        rainProbInput.value = curRain;
+        const rainProbDisplay = document.getElementById('rainProbDisplay');
+        if (rainProbDisplay) rainProbDisplay.textContent = `${curRain}%`;
+      }
+      if (headerWeatherVal) {
+        headerWeatherVal.textContent = `${curTemp}°C • Rain ${curRain}%`;
+      }
+    }
+
+    // 4. Recalculate Smart Irrigation based on local weather & coordinates
+    await loadIrrigationAdvice();
+
+    // 5. Update Crop Recommendations context if rendered
+    if (state.currentCropRecs) {
+      await loadCropRecommendations();
+    }
+  }
+
+  // Trigger high-precision GPS detection
+  async function detectGpsLocation() {
+    if (locationStatusBadge) {
+      locationStatusBadge.textContent = '● Acquiring GPS Satellite Lock...';
+      locationStatusBadge.style.color = '#E65100';
+    }
+    showToast('Acquiring high-precision GPS coordinates...', 'info');
+
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          try {
+            const rev = await window.AgriSmartAPI.reverseGeocodeLocation(lat, lon);
+            const locObj = {
+              name: rev.city || 'My Farm',
+              displayName: rev.display_name || `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`,
+              lat: lat,
+              lon: lon,
+              source: 'High-Precision GPS'
+            };
+            await applyLocationUpdate(locObj, true);
+          } catch (e) {
+            const locObj = {
+              name: 'GPS Station',
+              displayName: `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`,
+              lat: lat,
+              lon: lon,
+              source: 'High-Precision GPS'
+            };
+            await applyLocationUpdate(locObj, true);
+          }
+        },
+        async (err) => {
+          console.warn('GPS permission denied or unavailable:', err.message);
+          showToast('GPS access denied. Falling back to live network IP detection...', 'warning');
+          await autoDetectIpLocation(true);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      showToast('Geolocation not supported by browser. Using live IP location.', 'warning');
+      await autoDetectIpLocation(true);
+    }
+  }
+
+  // Auto-detect location via IP
+  async function autoDetectIpLocation(notify = false) {
+    try {
+      const ipLoc = await window.AgriSmartAPI.detectCurrentLocation();
+      const locObj = {
+        name: ipLoc.city,
+        displayName: ipLoc.display_name || `${ipLoc.city}, ${ipLoc.state}`,
+        lat: ipLoc.latitude,
+        lon: ipLoc.longitude,
+        source: ipLoc.source || 'Auto Network IP'
+      };
+      await applyLocationUpdate(locObj, notify);
+    } catch (e) {
+      console.warn('Auto IP location failed:', e);
+    }
+  }
+
+  // Bind location interaction listeners
+  if (detectGpsBtn) {
+    detectGpsBtn.addEventListener('click', () => {
+      detectGpsLocation();
+    });
+  }
+
+  if (headerLocationBtn) {
+    headerLocationBtn.addEventListener('click', () => {
+      detectGpsLocation();
+    });
+  }
+
+  if (locationInput) {
+    locationInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const query = locationInput.value.trim();
+        if (!query) return;
+        showToast(`Locating "${query}"...`, 'info');
+        const res = await window.AgriSmartAPI.searchLocation(query);
+        if (res) {
+          const locObj = {
+            name: res.name || query,
+            displayName: res.display_name || query,
+            lat: res.latitude,
+            lon: res.longitude,
+            source: 'Manual Search'
+          };
+          await applyLocationUpdate(locObj, true);
+        }
+      }
+    });
+  }
+
+  // Quick preset chips
+  document.querySelectorAll('.loc-preset-chip').forEach(chip => {
+    chip.addEventListener('click', async () => {
+      const locStr = chip.getAttribute('data-loc');
+      if (!locStr) return;
+      showToast(`Switching location to ${locStr}...`, 'info');
+      const res = await window.AgriSmartAPI.searchLocation(locStr);
+      if (res) {
+        const locObj = {
+          name: res.name || locStr,
+          displayName: res.display_name || locStr,
+          lat: res.latitude,
+          lon: res.longitude,
+          source: 'Quick Preset'
+        };
+        await applyLocationUpdate(locObj, true);
+      }
+    });
+  });
 
   /* ==========================================================
      1. Tab Navigation Controller
@@ -104,17 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ==========================================================
      2. Form Telemetry Sliders & Display Binding
      ========================================================== */
-  const phInput = document.getElementById('phInput');
-  const phDisplay = document.getElementById('phDisplay');
-  const moistureInput = document.getElementById('moistureInput');
-  const moistureDisplay = document.getElementById('moistureDisplay');
-  const tempInput = document.getElementById('tempInput');
-  const tempDisplay = document.getElementById('tempDisplay');
-  const rainProbInput = document.getElementById('rainProbInput');
-  const rainProbDisplay = document.getElementById('rainProbDisplay');
-  const headerMoistureVal = document.getElementById('headerMoistureVal');
-  const headerWeatherVal = document.getElementById('headerWeatherVal');
-
   if (phInput && phDisplay) {
     phInput.addEventListener('input', () => {
       phDisplay.textContent = `${phInput.value} pH`;
@@ -469,11 +661,11 @@ document.addEventListener('DOMContentLoaded', () => {
       temperature: tempInput?.value || 27,
       rainProb: rainProbInput?.value || 65,
       soilType: document.getElementById('soilTypeSelect')?.value || 'Loamy',
-      location: document.getElementById('locationInput')?.value || 'Nashik Valley, MH'
+      location: state.currentLocation?.displayName || document.getElementById('locationInput')?.value || 'Surat, Gujarat'
     };
 
     if (cropRecSoilSummary) {
-      cropRecSoilSummary.textContent = `${soilData.soilType} • pH ${soilData.ph} • Moisture ${soilData.moisture}% • ${soilData.temperature}°C`;
+      cropRecSoilSummary.textContent = `${soilData.soilType} • pH ${soilData.ph} • Moisture ${soilData.moisture}% • ${soilData.temperature}°C • ${soilData.location}`;
     }
 
     try {
@@ -555,9 +747,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadIrrigationAdvice() {
     const data = {
       moisture: moistureInput?.value || 68,
-      rainProb: rainProbInput?.value || 65,
-      temp: tempInput?.value || 27,
-      crop: document.getElementById('cropTypeSelect')?.value || 'Tomato'
+      rainProb: rainProbInput?.value || (state.currentWeather?.current?.rainProb ?? 35),
+      temp: tempInput?.value || (state.currentWeather?.current?.temp ?? 28),
+      crop: document.getElementById('cropTypeSelect')?.value || 'Tomato',
+      lat: state.currentLocation?.lat,
+      lon: state.currentLocation?.lon,
+      location: state.currentLocation?.displayName
     };
 
     try {
@@ -618,11 +813,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const weatherActionBannersContainer = document.getElementById('weatherActionBannersContainer');
   const weatherForecastContainer = document.getElementById('weatherForecastContainer');
 
-  async function loadWeatherAdvice() {
-    const loc = document.getElementById('locationInput')?.value || 'Nashik Valley, MH';
+  async function loadWeatherAdvice(locationName = null, lat = null, lon = null) {
+    const loc = locationName || state.currentLocation?.displayName || 'Surat, Gujarat';
+    const latitude = lat !== null && lat !== undefined ? lat : state.currentLocation?.lat;
+    const longitude = lon !== null && lon !== undefined ? lon : state.currentLocation?.lon;
+
     try {
-      const data = await window.AgriSmartAPI.getWeatherAdvice(loc);
+      const data = await window.AgriSmartAPI.getWeatherAdvice(loc, latitude, longitude);
       state.currentWeather = data;
+      window.currentWeatherSummary = `${data.current.temp}°C, ${data.current.condition}, ${data.current.rainProb}% rain in ${data.location}`;
       renderWeather(data);
     } catch (err) {
       console.error('Weather advice error:', err);
@@ -635,6 +834,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (weatherHeroHumidity) weatherHeroHumidity.textContent = `${data.current.humidity}%`;
     if (weatherHeroRain) weatherHeroRain.textContent = `${data.current.rainProb}%`;
     if (weatherHeroWind) weatherHeroWind.textContent = `${data.current.windSpeed} km/h`;
+
+    if (weatherHeroLocation) {
+      const coordsStr = data.latitude ? ` (${data.latitude.toFixed(2)}°N, ${data.longitude.toFixed(2)}°E)` : '';
+      weatherHeroLocation.textContent = `Station: ${data.location}${coordsStr} • Live Telemetry`;
+    }
+    if (headerLocationText) {
+      headerLocationText.textContent = data.location;
+    }
+    if (headerWeatherVal) {
+      headerWeatherVal.textContent = `${data.current.temp}°C • Rain ${data.current.rainProb}%`;
+    }
 
     // Action Banners
     if (weatherActionBannersContainer && data.actionBanners) {
@@ -775,7 +985,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const typingId = showTypingIndicator();
 
       try {
-        const response = await window.AgriSmartAPI.askAssistant(question, state.currentLanguage);
+        const assistantContext = {
+          location: state.currentLocation?.displayName || 'Surat, Gujarat',
+          weatherSummary: state.currentWeather ? `${state.currentWeather.current.temp}°C, ${state.currentWeather.current.condition}, ${state.currentWeather.current.rainProb}% rain` : undefined,
+          crop: document.getElementById('cropTypeSelect')?.value || 'Tomato',
+          diseaseDetected: state.lastAnalysisResult?.disease || undefined,
+          irrigationAdvice: state.currentIrrigation?.decision || undefined
+        };
+        const response = await window.AgriSmartAPI.askAssistant(question, state.currentLanguage, assistantContext);
         removeTypingIndicator(typingId);
         appendChatMessage(response.text, 'bot', response.timestamp);
       } catch (err) {
@@ -1000,10 +1217,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Initialize primary views on boot
+  // Initialize Location tracking and primary views on boot
+  autoDetectIpLocation();
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        window.AgriSmartAPI.reverseGeocodeLocation(pos.coords.latitude, pos.coords.longitude).then(rev => {
+          applyLocationUpdate({
+            name: rev.city || 'My Farm',
+            displayName: rev.display_name || `${pos.coords.latitude.toFixed(3)}°N, ${pos.coords.longitude.toFixed(3)}°E`,
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            source: 'High-Precision GPS'
+          });
+        });
+      },
+      (err) => console.log('Background GPS passive check:', err.message),
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+    );
+  }
+
   loadCropRecommendations();
   loadIrrigationAdvice();
-  loadWeatherAdvice();
   loadSustainability();
   loadAgenticFeed();
 

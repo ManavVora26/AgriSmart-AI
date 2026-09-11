@@ -44,6 +44,9 @@ def _build_system_prompt(context: Optional[dict], language: str) -> str:
 
     if context:
         parts = []
+        if context.get("location"):
+            parts.append(f"- Farm location / Region: {context['location']}")
+            sources_used.append("farm location and regional agro-climate")
         if context.get("disease_detected"):
             parts.append(f"- Disease detected: {context['disease_detected']}")
             sources_used.append("disease detection result")
@@ -68,8 +71,8 @@ Your role is to give clear, practical, and trustworthy advice about crop disease
 weather, and sustainable farming practices.
 
 Guidelines:
-1. Always ground your answers in the farm data provided below (if any). DO NOT contradict it.
-2. If no farm data is provided, give general best-practice advice.
+1. Always ground your answers in the farm data and location provided below (if any). DO NOT contradict it.
+2. If location or weather data is provided, tailor your recommendations specifically to that region's climate, soil, and seasonality.
 3. Use simple language a farmer can understand — avoid jargon.
 4. Be concise but complete. Give specific action steps.
 5. Respond ONLY in {lang_name}.
@@ -91,7 +94,7 @@ async def get_assistant_response(
 
     Args:
         question: The farmer's question
-        context: AssistantContext pydantic object (optional)
+        context: AssistantContext pydantic object or dict (optional)
         language: BCP-47 language code
 
     Returns:
@@ -99,13 +102,17 @@ async def get_assistant_response(
     """
     ctx_dict = None
     if context:
-        ctx_dict = {
-            "disease_detected": context.disease_detected,
-            "crop": context.crop,
-            "weather_summary": context.weather_summary,
-            "irrigation_advice": context.irrigation_advice,
-            "sustainability_score": context.sustainability_score,
-        }
+        if isinstance(context, dict):
+            ctx_dict = context
+        else:
+            ctx_dict = {
+                "disease_detected": getattr(context, "disease_detected", None),
+                "crop": getattr(context, "crop", None),
+                "weather_summary": getattr(context, "weather_summary", None),
+                "irrigation_advice": getattr(context, "irrigation_advice", None),
+                "sustainability_score": getattr(context, "sustainability_score", None),
+                "location": getattr(context, "location", None),
+            }
 
     system_prompt, sources_used = _build_system_prompt(ctx_dict, language)
     grounded = bool(sources_used)
@@ -119,11 +126,26 @@ async def get_assistant_response(
         from google.genai import types
 
         client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            config=types.GenerateContentConfig(system_instruction=system_prompt),
-            contents=question,
-        )
+        
+        models_to_try = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]
+        response = None
+        last_err = None
+
+        for m_name in models_to_try:
+            try:
+                response = await client.aio.models.generate_content(
+                    model=m_name,
+                    config=types.GenerateContentConfig(system_instruction=system_prompt),
+                    contents=question,
+                )
+                break
+            except Exception as e_candidate:
+                last_err = e_candidate
+                continue
+
+        if not response:
+            raise last_err or Exception("All candidate Gemini models failed.")
+
         answer = response.text.strip()
 
         return {
