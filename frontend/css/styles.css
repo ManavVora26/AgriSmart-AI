@@ -2153,3 +2153,260 @@ button, input, select, textarea {
   }
 }
 
+/* =========================================================
+   Mobile Responsiveness Master Overrides (All Screens <= 1099px, <= 768px & <= 480px)
+   ========================================================= */
+
+/* 1. Safe Area & Main Content Spacing */
+@media (max-width: 1099px) {
+  .main-content {
+    padding: 1.25rem 1rem calc(80px + env(safe-area-inset-bottom, 16px)) 1rem !important;
+  }
+  .app-footer {
+    padding-bottom: calc(75px + env(safe-area-inset-bottom, 16px)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Header & Branding */
+  .app-header {
+    padding: 0.6rem 0.85rem;
+  }
+  .brand-area {
+    gap: 0.5rem;
+  }
+  .brand-logo-wrap {
+    width: 38px;
+    height: 38px;
+  }
+  .brand-logo-wrap svg {
+    width: 22px;
+    height: 22px;
+  }
+  .brand-text h1 {
+    font-size: 1.08rem;
+  }
+  .brand-badge {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+  }
+  .brand-tagline {
+    font-size: 0.7rem;
+  }
+  .nav-toggle-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  /* Horizontal Top Nav Bar */
+  .nav-container {
+    padding: 0 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-list {
+    gap: 0.25rem;
+    padding: 0.35rem 0;
+  }
+  .nav-btn {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.82rem;
+    gap: 0.4rem;
+  }
+  .nav-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .nav-badge {
+    font-size: 0.65rem;
+  }
+
+  /* Section Headers */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.15rem;
+  }
+  .section-title {
+    font-size: 1.3rem;
+  }
+  .section-desc {
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  /* Section 1: Dropzone & Upload */
+  .dropzone {
+    padding: 1.5rem 1rem;
+  }
+  .dropzone-icon {
+    width: 50px;
+    height: 50px;
+  }
+  .dropzone-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+  .dropzone-title {
+    font-size: 1.05rem;
+  }
+  .dropzone-subtitle {
+    font-size: 0.82rem;
+  }
+  .upload-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .upload-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+  .sample-chip {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  /* Section 2: Crop Recommendations */
+  #cropRegionPresetSelect {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .crop-soil-telemetry-strip {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.35rem !important;
+  }
+
+  /* Section 3: Irrigation Hero & Sliders */
+  .irrigation-decision-hero {
+    padding: 1.15rem 1rem;
+  }
+  .irrigation-decision-title {
+    font-size: 1.15rem;
+  }
+  .irrigation-reasoning-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .scenario-chip {
+    font-size: 0.76rem !important;
+    padding: 0.3rem 0.65rem !important;
+  }
+
+  /* Section 5: Sustainability Simulator */
+  .segmented-control {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 3px !important;
+  }
+  .segmented-btn {
+    padding: 0.4rem 0.35rem;
+    font-size: 0.75rem;
+  }
+  .toggle-control {
+    font-size: 0.78rem;
+  }
+
+  /* Section 6: Chat Assistant */
+  .chat-container {
+    height: calc(100vh - 280px);
+    min-height: 440px;
+  }
+  .chat-header {
+    padding: 0.75rem 1rem;
+  }
+  .chat-messages {
+    padding: 1rem 0.75rem;
+    gap: 0.75rem;
+  }
+  .chat-bubble {
+    max-width: 90%;
+    padding: 0.75rem 0.95rem;
+    font-size: 0.88rem;
+  }
+  .chat-input-row {
+    padding: 0.65rem 0.85rem;
+  }
+  .chat-input {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.88rem;
+  }
+  .chat-send-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  /* Section 7: Agent Simulator & Activity Feed */
+  .agentic-simulator-card {
+    padding: 1rem !important;
+  }
+  .agent-scenario-chip {
+    font-size: 0.76rem !important;
+    padding: 0.35rem 0.65rem !important;
+  }
+  .feed-controls-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+  .feed-filter-chips {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .feed-filter-btn {
+    white-space: nowrap;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.7rem;
+  }
+  .timeline-item {
+    padding: 1rem;
+    gap: 0.65rem;
+  }
+  .timeline-title {
+    font-size: 0.98rem;
+  }
+  .timeline-detail-grid {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+    gap: 0.5rem;
+  }
+
+  /* Cards & Forms General */
+  .card {
+    padding: 1.15rem;
+    border-radius: var(--radius-md);
+  }
+  .form-label {
+    font-size: 0.82rem;
+  }
+  .form-input, .form-select {
+    font-size: 0.88rem;
+    padding: 0.55rem 0.75rem;
+  }
+  .btn-primary, .btn-secondary {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.88rem;
+  }
+}
+
+/* Extra small mobile screens <= 420px */
+@media (max-width: 420px) {
+  .brand-tagline {
+    display: none;
+  }
+  .brand-text h1 {
+    font-size: 1rem;
+  }
+  .mobile-nav-item span {
+    font-size: 0.68rem;
+  }
+  .mobile-nav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+
