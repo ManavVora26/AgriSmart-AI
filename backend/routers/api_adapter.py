@@ -142,14 +142,32 @@ class FrontendCropRequest(BaseModel):
     rainfall_prob: Optional[float] = 30.0
     soil_type: Optional[str] = "Loamy"
     location: Optional[str] = "Local"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 @router.post(
     "/recommend-crop",
     summary="Crop Recommendation (Frontend format)",
-    description="Recommends crops tailored to soil pH, moisture, climate, and soil type.",
+    description="Recommends crops tailored to soil pH, moisture, climate, and live or selected location.",
 )
 async def api_recommend_crop(req: FrontendCropRequest):
+    resolved_loc = req.location or "Local"
+    resolved_lat = req.latitude
+    resolved_lon = req.longitude
+
+    # Geocode location if text provided without GPS coordinates
+    if (resolved_lat is None or resolved_lon is None) and resolved_loc and resolved_loc not in ("Local", "Detecting location..."):
+        try:
+            geo = await geocode_location(resolved_loc)
+            if geo:
+                resolved_lat = geo.get("lat")
+                resolved_lon = geo.get("lon")
+                if "name" in geo and geo["name"]:
+                    resolved_loc = geo.get("display_name", resolved_loc)
+        except Exception as e:
+            logger.warning(f"Geocoding failed for crop recommendation location {resolved_loc}: {e}")
+
     req_obj = CropRecommendRequest(
         soil_type=req.soil_type or "Loamy",
         pH=req.ph or 6.5,
@@ -157,7 +175,9 @@ async def api_recommend_crop(req: FrontendCropRequest):
         humidity=req.moisture or 50.0,
         rainfall=(req.rainfall_prob or 30.0) * 10.0,
         season="Kharif",
-        location=req.location or "Local",
+        location=resolved_loc,
+        latitude=resolved_lat,
+        longitude=resolved_lon,
     )
 
     service_res = service_recommend_crop(req_obj)
@@ -165,10 +185,13 @@ async def api_recommend_crop(req: FrontendCropRequest):
     top_crop = service_res.get("recommended_crop", "Chickpea")
     confidence = service_res.get("confidence", 0.95)
     alternatives = service_res.get("alternative_crops", ["Maize", "Pigeonpeas", "Mothbeans"])
+    favored_crops = service_res.get("favored_crops", [])
+    zone_name = service_res.get("zone_name", "General Agro-Ecological Zone")
+    zone_note = service_res.get("zone_note", "")
 
     crop_profiles = {
         "Chickpea": {
-            "name": "Chickpea / Gram",
+            "name": "Chickpea / Bengal Gram",
             "botanicalName": "Cicer arietinum",
             "water": "Low to Moderate (250-350mm)",
             "cycle": "90-110 Days",
@@ -177,7 +200,7 @@ async def api_recommend_crop(req: FrontendCropRequest):
             "advantage": "Symbiotic nitrogen fixation restores soil fertility for successive rotations.",
         },
         "Wheat": {
-            "name": "Durum Wheat",
+            "name": "Durum / Sharbati Wheat",
             "botanicalName": "Triticum durum",
             "water": "Moderate (300-450mm)",
             "cycle": "110-125 Days",
@@ -201,7 +224,7 @@ async def api_recommend_crop(req: FrontendCropRequest):
             "cycle": "70-90 Days",
             "yield": "60-80 MT/Ha",
             "profit": "High Cash Yield",
-            "advantage": "High daily harvest turnovers in fresh vegetable markets.",
+            "advantage": "High daily harvest turnovers in fresh vegetable and processing markets.",
         },
         "Cotton": {
             "name": "Bt Cotton",
@@ -210,7 +233,7 @@ async def api_recommend_crop(req: FrontendCropRequest):
             "cycle": "150-180 Days",
             "yield": "25-30 Q/Ha",
             "profit": "High Cash Flow",
-            "advantage": "Thrives in deep black cotton soils with high moisture retention.",
+            "advantage": "Thrives in deep black cotton soils and semi-arid sunny regimes.",
         },
         "Rice": {
             "name": "Paddy / Basmati Rice",
@@ -221,10 +244,93 @@ async def api_recommend_crop(req: FrontendCropRequest):
             "profit": "High Volume Export",
             "advantage": "High yield stability in water-retentive clay loam terrain.",
         },
+        "Groundnut": {
+            "name": "Groundnut / Peanut",
+            "botanicalName": "Arachis hypogaea",
+            "water": "Low to Moderate (400-500mm)",
+            "cycle": "100-120 Days",
+            "yield": "22-28 Q/Ha",
+            "profit": "High Oil Value",
+            "advantage": "Premier oilseed with excellent adaptability to sandy loam and black soil.",
+        },
+        "Onion": {
+            "name": "Commercial Red Onion",
+            "botanicalName": "Allium cepa",
+            "water": "Moderate (350-550mm)",
+            "cycle": "110-130 Days",
+            "yield": "250-320 Q/Ha",
+            "profit": "Very High Market Cash",
+            "advantage": "High export and local trade demand with exceptional storage capacity.",
+        },
+        "Soybean": {
+            "name": "Yellow Soybean",
+            "botanicalName": "Glycine max",
+            "water": "Moderate (450-650mm)",
+            "cycle": "90-105 Days",
+            "yield": "20-25 Q/Ha",
+            "profit": "High Commercial Demand",
+            "advantage": "Enriches soil nitrogen and thrives in central/western black soil plateaus.",
+        },
+        "Sugarcane": {
+            "name": "Tropical Sugarcane",
+            "botanicalName": "Saccharum officinarum",
+            "water": "High (1500-2200mm)",
+            "cycle": "300-360 Days",
+            "yield": "80-110 MT/Ha",
+            "profit": "Guaranteed Mill FRP",
+            "advantage": "Long-duration resilient cash crop with established mill procurement.",
+        },
+        "Potato": {
+            "name": "Table Potato",
+            "botanicalName": "Solanum tuberosum",
+            "water": "Moderate (400-600mm)",
+            "cycle": "80-100 Days",
+            "yield": "220-280 Q/Ha",
+            "profit": "High Volume Cash",
+            "advantage": "Rapid harvest turnover and high caloric productivity per hectare.",
+        },
+        "Mustard": {
+            "name": "Indian Mustard / Rai",
+            "botanicalName": "Brassica juncea",
+            "water": "Low (200-350mm)",
+            "cycle": "105-125 Days",
+            "yield": "18-24 Q/Ha",
+            "profit": "Consistently High Price",
+            "advantage": "Exceptional drought and cold tolerance in winter Rabi season.",
+        },
+        "Banana": {
+            "name": "Grand Naine Banana",
+            "botanicalName": "Musa acuminata",
+            "water": "High (1800-2200mm)",
+            "cycle": "330-365 Days",
+            "yield": "70-95 MT/Ha",
+            "profit": "Year-Round Cash Flow",
+            "advantage": "High biomass yield and perpetual market off-take.",
+        },
+        "Pearl Millet": {
+            "name": "Pearl Millet / Bajra",
+            "botanicalName": "Pennisetum glaucum",
+            "water": "Very Low (250-400mm)",
+            "cycle": "75-90 Days",
+            "yield": "28-35 Q/Ha",
+            "profit": "Growing Superfood Demand",
+            "advantage": "Supreme drought tolerance; thrives even in nutrient-lean soils.",
+        },
+        "Apple": {
+            "name": "Temperate Apple",
+            "botanicalName": "Malus domestica",
+            "water": "Moderate (700-1000mm)",
+            "cycle": "Perennial Fruit",
+            "yield": "12-18 MT/Ha",
+            "profit": "Premium Horticulture Value",
+            "advantage": "High economic returns in high-altitude temperate valleys.",
+        },
     }
 
     all_crops = [top_crop] + alternatives
     ui_recommendations = []
+    zone_short = zone_name.split("/")[0].strip()
+
     for idx, c_name in enumerate(all_crops[:4], start=1):
         profile = crop_profiles.get(
             c_name,
@@ -239,6 +345,12 @@ async def api_recommend_crop(req: FrontendCropRequest):
             },
         )
         score = round((confidence - (idx - 1) * 0.05) * 100, 1)
+        is_favored = c_name in favored_crops
+
+        if is_favored:
+            regional_badge = f"📍 {zone_short} Flagship"
+        else:
+            regional_badge = "Adaptable Variety"
 
         ui_recommendations.append({
             "rank": idx,
@@ -249,10 +361,12 @@ async def api_recommend_crop(req: FrontendCropRequest):
             "harvestDuration": profile["cycle"],
             "expectedYield": profile["yield"],
             "profitPotential": profile["profit"],
+            "regionalBadge": regional_badge,
+            "isRegionalStar": is_favored,
             "rationale": (
                 service_res.get("reasoning", "")
                 if idx == 1
-                else f"Secondary fit with soil pH {req.ph} and climatic profile."
+                else f"Secondary fit for {resolved_loc} ({zone_name}) with soil pH {req.ph} and ambient climate."
             ),
             "keyAdvantage": profile["advantage"],
         })
@@ -264,8 +378,15 @@ async def api_recommend_crop(req: FrontendCropRequest):
             "ph": req.ph,
             "moisture": req.moisture,
             "temperature": req.temperature,
-            "location": req.location,
+            "location": resolved_loc,
+            "latitude": resolved_lat,
+            "longitude": resolved_lon,
+            "zone_name": zone_name,
+            "zone_note": zone_note,
         },
+        "zone_name": zone_name,
+        "zone_note": zone_note,
+        "location_analyzed": resolved_loc,
         "recommendations": ui_recommendations,
     }
 

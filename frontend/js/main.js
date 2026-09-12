@@ -97,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Recalculate Smart Irrigation based on local weather & coordinates
     await loadIrrigationAdvice();
 
-    // 5. Update Crop Recommendations context if rendered
-    if (state.currentCropRecs) {
+    // 5. Update Crop Recommendations context for current location
+    if (!state.cropSelectedLocation) {
       await loadCropRecommendations();
     }
   }
@@ -689,14 +689,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ==========================================================
-     5. Crop Recommendation Controller
+     5. Crop Recommendation Controller (Location & Climate Aware)
      ========================================================= */
   const refreshCropRecsBtn = document.getElementById('refreshCropRecsBtn');
   const cropRecommendationsList = document.getElementById('cropRecommendationsList');
   const cropRecSoilSummary = document.getElementById('cropRecSoilSummary');
+  const cropActiveLocationName = document.getElementById('cropActiveLocationName');
+  const cropLocationModeBadge = document.getElementById('cropLocationModeBadge');
+  const cropUseLiveLocationBtn = document.getElementById('cropUseLiveLocationBtn');
+  const cropRegionPresetSelect = document.getElementById('cropRegionPresetSelect');
+  const cropCustomLocationInput = document.getElementById('cropCustomLocationInput');
+  const cropApplyCustomLocBtn = document.getElementById('cropApplyCustomLocBtn');
+  const cropRecZoneName = document.getElementById('cropRecZoneName');
 
   async function loadCropRecommendations() {
     if (!cropRecommendationsList) return;
+
+    // Determine whether user is using a custom selected location or the live/current location
+    const isCustomSelected = Boolean(state.cropSelectedLocation);
+    const activeLoc = state.cropSelectedLocation || state.currentLocation;
+    const locName = activeLoc?.displayName || activeLoc?.name || document.getElementById('locationInput')?.value || 'Surat, Gujarat';
+    const locLat = activeLoc?.lat;
+    const locLon = activeLoc?.lon;
+
+    // Update the UI header in the Crop Recommendation card
+    if (cropActiveLocationName) {
+      cropActiveLocationName.textContent = locName;
+    }
+    if (cropLocationModeBadge) {
+      if (isCustomSelected) {
+        cropLocationModeBadge.textContent = '📍 Custom Selected Location';
+        cropLocationModeBadge.style.background = '#E3F2FD';
+        cropLocationModeBadge.style.color = '#1565C0';
+        cropLocationModeBadge.style.border = '1px solid #90CAF9';
+      } else {
+        const isGps = activeLoc?.source && activeLoc.source.includes('GPS');
+        cropLocationModeBadge.textContent = isGps ? '● Live GPS Detected' : '● Live Auto-Detected';
+        cropLocationModeBadge.style.background = '#E8F5E9';
+        cropLocationModeBadge.style.color = '#2E7D32';
+        cropLocationModeBadge.style.border = '1px solid #A5D6A7';
+      }
+    }
 
     const soilData = {
       ph: phInput?.value || 6.4,
@@ -704,32 +737,50 @@ document.addEventListener('DOMContentLoaded', () => {
       temperature: tempInput?.value || 27,
       rainProb: rainProbInput?.value || 65,
       soilType: document.getElementById('soilTypeSelect')?.value || 'Loamy',
-      location: state.currentLocation?.displayName || document.getElementById('locationInput')?.value || 'Surat, Gujarat'
+      location: locName,
+      lat: locLat,
+      lon: locLon
     };
 
     if (cropRecSoilSummary) {
-      cropRecSoilSummary.textContent = `${soilData.soilType} • pH ${soilData.ph} • Moisture ${soilData.moisture}% • ${soilData.temperature}°C • ${soilData.location}`;
+      cropRecSoilSummary.textContent = `${soilData.soilType} Soil • pH ${soilData.ph} • Moisture ${soilData.moisture}% • ${soilData.temperature}°C`;
     }
 
     try {
       const data = await window.AgriSmartAPI.recommendCrop(soilData);
       state.currentCropRecs = data;
-      renderCropRecommendations(data.recommendations);
+
+      if (cropRecZoneName && data.zone_name) {
+        cropRecZoneName.textContent = data.zone_name;
+      }
+
+      renderCropRecommendations(data.recommendations, data);
     } catch (err) {
       console.error('Crop recommendation error:', err);
     }
   }
 
-  function renderCropRecommendations(crops) {
+  function renderCropRecommendations(crops, meta = {}) {
     if (!cropRecommendationsList || !crops) return;
 
-    cropRecommendationsList.innerHTML = crops.map(crop => `
-      <article class="crop-rank-card" aria-label="${crop.name} Rank ${crop.rank}">
+    cropRecommendationsList.innerHTML = crops.map(crop => {
+      const isStar = crop.isRegionalStar || crop.regionalBadge?.includes('Flagship') || crop.regionalBadge?.includes('Star');
+      const badgeHtml = crop.regionalBadge ? `
+        <span class="crop-regional-pill" title="Tailored to local agro-climatic zone">
+          ${crop.regionalBadge}
+        </span>
+      ` : '';
+
+      return `
+      <article class="crop-rank-card ${isStar ? 'crop-card-regional-star' : ''}" aria-label="${crop.name} Rank ${crop.rank}">
         <div class="crop-card-top">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div class="crop-rank-badge">#${crop.rank}</div>
+            <div class="crop-rank-badge ${isStar ? 'star-badge' : ''}">#${crop.rank}</div>
             <div class="crop-name-wrap">
-              <h3>${crop.name}</h3>
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <h3>${crop.name}</h3>
+                ${badgeHtml}
+              </div>
               <p style="font-size: 0.85rem; font-style: italic; color: var(--color-text-light);">${crop.botanicalName}</p>
             </div>
           </div>
@@ -765,7 +816,106 @@ document.addEventListener('DOMContentLoaded', () => {
           Key Advantage: <span style="font-weight: normal; color: var(--color-text-main);">${crop.keyAdvantage}</span>
         </div>
       </article>
-    `).join('');
+      `;
+    }).join('');
+  }
+
+  // Bind Crop Location Controls
+  if (cropUseLiveLocationBtn) {
+    cropUseLiveLocationBtn.addEventListener('click', async () => {
+      state.cropSelectedLocation = null;
+      if (cropRegionPresetSelect) cropRegionPresetSelect.value = 'CURRENT';
+      if (cropCustomLocationInput) cropCustomLocationInput.value = '';
+      showToast('Acquiring live GPS / network location for crop matching...', 'info');
+      await detectGpsLocation();
+      await loadCropRecommendations();
+    });
+  }
+
+  if (cropRegionPresetSelect) {
+    cropRegionPresetSelect.addEventListener('change', async () => {
+      const selectedVal = cropRegionPresetSelect.value;
+      if (selectedVal === 'CURRENT') {
+        state.cropSelectedLocation = null;
+        showToast('Switched crop engine to current live location', 'info');
+        await loadCropRecommendations();
+        return;
+      }
+      showToast(`Evaluating crops for ${selectedVal}...`, 'info');
+      try {
+        const geocoded = await window.AgriSmartAPI.searchLocation(selectedVal);
+        if (geocoded) {
+          state.cropSelectedLocation = {
+            name: geocoded.name || selectedVal,
+            displayName: geocoded.display_name || selectedVal,
+            lat: geocoded.latitude,
+            lon: geocoded.longitude,
+            source: 'Preset Region'
+          };
+        } else {
+          state.cropSelectedLocation = {
+            name: selectedVal,
+            displayName: selectedVal,
+            source: 'Preset Region'
+          };
+        }
+      } catch (err) {
+        state.cropSelectedLocation = {
+          name: selectedVal,
+          displayName: selectedVal,
+          source: 'Preset Region'
+        };
+      }
+      await loadCropRecommendations();
+      showToast(`Crops matched for ${selectedVal}`, 'success');
+    });
+  }
+
+  async function applyCustomCropLocation() {
+    if (!cropCustomLocationInput) return;
+    const query = cropCustomLocationInput.value.trim();
+    if (!query) return;
+
+    showToast(`Locating agricultural zone for "${query}"...`, 'info');
+    try {
+      const geocoded = await window.AgriSmartAPI.searchLocation(query);
+      if (geocoded) {
+        state.cropSelectedLocation = {
+          name: geocoded.name || query,
+          displayName: geocoded.display_name || query,
+          lat: geocoded.latitude,
+          lon: geocoded.longitude,
+          source: 'Custom Selected'
+        };
+      } else {
+        state.cropSelectedLocation = {
+          name: query,
+          displayName: query,
+          source: 'Custom Selected'
+        };
+      }
+    } catch (err) {
+      state.cropSelectedLocation = {
+        name: query,
+        displayName: query,
+        source: 'Custom Selected'
+      };
+    }
+    if (cropRegionPresetSelect) cropRegionPresetSelect.value = '';
+    await loadCropRecommendations();
+    showToast(`Crop recommendations customized for "${query}"`, 'success');
+  }
+
+  if (cropApplyCustomLocBtn) {
+    cropApplyCustomLocBtn.addEventListener('click', applyCustomCropLocation);
+  }
+  if (cropCustomLocationInput) {
+    cropCustomLocationInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        await applyCustomCropLocation();
+      }
+    });
   }
 
   if (refreshCropRecsBtn) {

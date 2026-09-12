@@ -232,10 +232,14 @@ async function mockRecommendCrop(soilData = {}) {
   const ph = Number(soilData.ph) || 6.5;
   const moisture = Number(soilData.moisture) || 45;
   const soilType = soilData.soilType || 'Loamy';
+  const loc = soilData.location || 'Surat, Gujarat';
 
   return {
     analysisTimestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    zone_name: loc.toLowerCase().includes('punjab') ? 'Indo-Gangetic Plains' : (loc.toLowerCase().includes('nashik') || loc.toLowerCase().includes('maharashtra') ? 'Maharashtra / Deccan Plateau' : 'Gujarat / Western Semi-Arid Zone'),
+    location_analyzed: loc,
     parametersEvaluated: {
+      location: loc,
       soilType,
       ph,
       moisture: `${moisture}%`,

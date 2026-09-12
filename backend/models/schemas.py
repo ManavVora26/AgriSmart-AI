@@ -36,6 +36,8 @@ class CropRecommendRequest(BaseModel):
     rainfall: float = Field(..., ge=0.0, description="Annual rainfall in mm")
     season: str = Field(..., description="e.g. 'Kharif', 'Rabi', 'Zaid', 'Summer', 'Winter'")
     location: Optional[str] = Field(None, description="Region or state name")
+    latitude: Optional[float] = Field(None, description="Optional GPS latitude for micro-climate matching")
+    longitude: Optional[float] = Field(None, description="Optional GPS longitude for micro-climate matching")
     previous_crop: Optional[str] = Field(None, description="Previous crop grown for rotation advice")
     water_availability: Optional[str] = Field("moderate", description="'low', 'moderate', 'high'")
 
@@ -49,6 +51,8 @@ class CropRecommendRequest(BaseModel):
                 "rainfall": 800.0,
                 "season": "Kharif",
                 "location": "Gujarat",
+                "latitude": 21.17,
+                "longitude": 72.83,
                 "previous_crop": "Wheat",
                 "water_availability": "moderate",
             }
@@ -62,6 +66,9 @@ class CropRecommendResponse(BaseModel):
     reasoning: str
     alternative_crops: List[str]
     rotation_note: Optional[str] = None
+    zone_name: Optional[str] = None
+    location_analyzed: Optional[str] = None
+    favored_crops: Optional[List[str]] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -166,9 +166,9 @@ async def health_check():
 async def root(request: Request):
     """Redirect browser visits directly to the frontend web app, while returning JSON for API clients."""
     accept = request.headers.get("accept", "")
-    if "application/json" in accept and "text/html" not in accept:
-        return await health_check()
-    return RedirectResponse(url="/frontend/index.html")
+    if "text/html" in accept and not accept.startswith("application/json"):
+        return RedirectResponse(url="/frontend/index.html")
+    return await health_check()
 
 
 # ─── Bonus G — Agentic Advisor ──────────────────────────────────────────────────

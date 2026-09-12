@@ -530,13 +530,88 @@
         </button>
       </div>
 
-      <!-- Current Input Parameters Summary Pill -->
-      <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem;">
-        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
-          <div style="font-size: 0.9rem; color: var(--color-text-main);">
-            Evaluating for: <strong id="cropRecSoilSummary">Loamy Soil • pH 6.4 • Moisture 68% • 27°C</strong>
+      <!-- Location & Agro-Climatic Intelligence Control Bar -->
+      <div class="card crop-location-control-card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
+        <div class="crop-loc-bar-header">
+          <div class="crop-loc-status-wrap">
+            <div class="crop-loc-icon-circle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--color-text-light);">Active Agro-Ecological Region</div>
+              <div style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span id="cropActiveLocationName">Detecting location...</span>
+                <span id="cropLocationModeBadge" class="brand-badge" style="font-size: 0.75rem; background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7;">● Live Location Active</span>
+              </div>
+            </div>
           </div>
-          <span class="brand-badge">Optimal Season: Rabi / Winter Cropping</span>
+
+          <div class="crop-loc-actions">
+            <button type="button" class="btn-sm btn-outline" id="cropUseLiveLocationBtn" title="Detect & match crops to current GPS / Live IP location">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="2" x2="12" y2="5"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="5" y2="12"/>
+                <line x1="19" y1="12" x2="22" y2="12"/>
+              </svg>
+              <span>Use My Live Location</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Location Preset Selector & Custom Search -->
+        <div class="crop-loc-selector-row" style="margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--color-border); display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+          <label for="cropRegionPresetSelect" style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-main); display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;">
+            <span>Select Location:</span>
+          </label>
+          <select id="cropRegionPresetSelect" class="form-select" style="max-width: 320px; font-size: 0.88rem; padding: 0.45rem 0.75rem;">
+            <option value="CURRENT">📍 Follow Current Location (Auto Sync)</option>
+            <optgroup label="Western Region (Cotton / Groundnut / Pulses)">
+              <option value="Surat, Gujarat">Surat, Gujarat (Coastal Western Plains)</option>
+              <option value="Rajkot, Gujarat">Rajkot / Saurashtra, Gujarat (Groundnut/Cotton Belt)</option>
+              <option value="Ahmedabad, Gujarat">Ahmedabad, Gujarat (Central Plains)</option>
+            </optgroup>
+            <optgroup label="Maharashtra (Onion / Soybean / Horticulture)">
+              <option value="Nashik, Maharashtra">Nashik, Maharashtra (Horticulture & Onion Hub)</option>
+              <option value="Pune, Maharashtra">Pune, Maharashtra (Deccan Plateau)</option>
+              <option value="Nagpur, Maharashtra">Nagpur, Maharashtra (Vidarbha Basin)</option>
+            </optgroup>
+            <optgroup label="Northern Plains (Wheat / Rice / Mustard)">
+              <option value="Ludhiana, Punjab">Ludhiana, Punjab (Indo-Gangetic Granary)</option>
+              <option value="Karnal, Haryana">Karnal, Haryana (Basmati / Wheat Belt)</option>
+              <option value="Lucknow, Uttar Pradesh">Lucknow, Uttar Pradesh (Central Gangetic Plain)</option>
+            </optgroup>
+            <optgroup label="Central & Arid Zones (Soybean / Millets / Mustard)">
+              <option value="Indore, Madhya Pradesh">Indore, Madhya Pradesh (Malwa Black Soil)</option>
+              <option value="Jaipur, Rajasthan">Jaipur, Rajasthan (Semi-Arid Zone)</option>
+            </optgroup>
+            <optgroup label="Southern & Hill Agro-Zones">
+              <option value="Bengaluru, Karnataka">Bengaluru, Karnataka (Southern Plateau)</option>
+              <option value="Shimla, Himachal Pradesh">Shimla, Himachal Pradesh (Temperate Mountain Zone)</option>
+            </optgroup>
+          </select>
+
+          <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 240px;">
+            <input type="text" id="cropCustomLocationInput" class="form-input" placeholder="Or type any city/district (Press Enter)..." style="font-size: 0.88rem; padding: 0.45rem 0.75rem;">
+            <button type="button" class="btn-secondary" id="cropApplyCustomLocBtn" style="padding: 0.45rem 0.9rem; font-size: 0.85rem; white-space: nowrap;">
+              Match Crop
+            </button>
+          </div>
+        </div>
+
+        <!-- Telemetry Summary -->
+        <div class="crop-soil-telemetry-strip" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed var(--color-border); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--color-text-main);">
+          <div>
+            Agro-Climatic Zone: <strong id="cropRecZoneName" style="color: var(--color-primary-dark);">Western Semi-Arid & Coastal Zone</strong>
+          </div>
+          <div id="cropRecSoilSummary" style="color: var(--color-text-light);">
+            Loamy Soil • pH 6.4 • Moisture 68% • 27°C
+          </div>
         </div>
       </div>
 

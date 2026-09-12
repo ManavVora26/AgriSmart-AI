@@ -85,7 +85,9 @@ async function recommendCrop(soilData = {}) {
           temperature: Number(soilData.temperature) || 28,
           rainfall_prob: Number(soilData.rainProb || soilData.rainfall_prob) || 30,
           soil_type: soilData.soilType || soilData.soil_type || 'Loamy',
-          location: soilData.location || 'Local'
+          location: soilData.location || 'Local',
+          latitude: (soilData.lat !== undefined && soilData.lat !== null) ? Number(soilData.lat) : undefined,
+          longitude: (soilData.lon !== undefined && soilData.lon !== null) ? Number(soilData.lon) : undefined,
         })
       });
 

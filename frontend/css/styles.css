@@ -993,6 +993,67 @@ button, input, select, textarea {
 }
 
 /* ---------------- SECTION 2: Crop Recommendation ---------------- */
+.crop-location-control-card {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F9FBF7 100%);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-norm);
+}
+
+.crop-location-control-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.crop-loc-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.crop-loc-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.crop-loc-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(46, 125, 50, 0.12);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.crop-regional-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #C8E6C9;
+}
+
+.crop-card-regional-star {
+  border-color: #A5D6A7;
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFCF8 100%);
+}
+
+.crop-card-regional-star .star-badge {
+  background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.35);
+}
+
 .crop-rank-card {
   background: #FFFFFF;
   border: 1px solid var(--color-border);
