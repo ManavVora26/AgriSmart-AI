@@ -244,12 +244,22 @@ async function getWeatherAdvice(location = 'Surat, Gujarat', lat = null, lon = n
  * @returns {Promise<Object>} Overall score, grade, pillar breakdowns, 3 improvement recommendations
  */
 async function getSustainabilityScore(data = {}) {
+  const payload = {
+    crop: data.crop || 'Tomato',
+    area_hectares: Number(data.area_hectares ?? 2.0),
+    water_used_liters: Number(data.water_used_liters ?? 35000),
+    fertilizer_kg_per_hectare: Number(data.fertilizer_kg_per_hectare ?? 45),
+    disease_detected: Boolean(data.disease_detected),
+    irrigation_method: data.irrigation_method || 'drip',
+    pesticide_used: Boolean(data.pesticide_used),
+  };
+
   if (!USE_MOCK_API) {
     try {
       const response = await fetch(`${API_BASE_URL}/sustainability/score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data || { crop: 'Tomato' })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -262,7 +272,7 @@ async function getSustainabilityScore(data = {}) {
   }
 
   // Fallback to Mock:
-  return window.AgriSmartMock.mockGetSustainabilityScore(data);
+  return window.AgriSmartMock.mockGetSustainabilityScore(payload);
 }
 
 /**

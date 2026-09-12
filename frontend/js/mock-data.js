@@ -316,67 +316,96 @@ async function mockGetIrrigationAdvice(data = {}) {
   const rainProb = Number(data.rainProb ?? 65);
   const temp = Number(data.temp ?? 28);
   const crop = data.crop || 'Tomato';
+  const evapo = temp > 25 ? (3.2 + (temp - 25) * 0.15).toFixed(1) : '3.2';
 
-  // Rule logic: If rain forecast is high (>55%) or soil moisture is high (>55%), irrigation NOT needed
-  const needed = (moisture < 35 && rainProb < 45);
-
-  if (needed) {
+  if (rainProb >= 60 && moisture > 35) {
     return {
-      needed: true,
-      decision: 'YES — Irrigation Recommended',
-      decisionColor: '#2E7D32',
-      headline: 'Root Zone Moisture Depleted — Run Drip Cycle Today',
-      reasoning: `Soil moisture has dropped to ${moisture}%, below the critical threshold of 35% for ${crop}. Rainfall probability is low (${rainProb}%), and ambient temperature (${temp}°C) indicates steady evapotranspiration.`,
+      needed: false,
+      decisionType: 'delay',
+      decision: `Irrigation Delayed — Rain Incoming (${Math.round(rainProb)}%)`,
+      reasoning: `Upcoming precipitation forecast of <strong>${Math.round(rainProb)}%</strong> is expected within the next 24 hours. Current soil moisture (${moisture}%) is above critical threshold for ${crop}. Postponing irrigation will conserve water and prevent waterlogging root stress.`,
       metrics: {
         soilMoisture: moisture,
-        moistureThreshold: 35,
-        rainForecast24h: `${rainProb}% chance (< 2mm)`,
-        evapoTranspiration: '4.8 mm/day',
-        waterDeficit: '18 mm',
-        targetMoisture: '55%'
+        rainForecast24h: `${Math.round(rainProb)}% (8-12 mm)`,
+        temperature: temp,
+        evapotranspiration: `${evapo} mm/d`,
+        waterSaved: '16,500 L',
+        crop: crop,
+        location: 'Current Farm'
       },
       schedule: {
-        optimalWindow: 'Today, 5:30 PM - 7:00 PM (Low Evaporation)',
-        duration: '60 Minutes',
-        recommendedVolume: '14,000 Litres / Acre',
-        deliveryMethod: 'Drip Irrigation (Valves #1 & #3)',
-        fertigationFriendly: true
-      },
-      farmerTips: [
-        'Irrigate in late afternoon or early dawn to curb 22% evaporative loss.',
-        'Check emitter flow rate on lateral lines for silt blockage.',
-        'Inject soluble potassium humate during the final 15 minutes of the cycle.'
-      ]
+        optimalWindow: 'Hold off; re-evaluate after rain passes',
+        runTime: '0 Minutes (Standby Mode)',
+        recommendedVolumePerSqm: 0.0
+      }
     };
   }
 
-  // Delay advised
+  if (temp > 35 && rainProb < 50) {
+    return {
+      needed: true,
+      decisionType: 'heatwave',
+      decision: `Heatwave Stress Override — Cooling Pulse (${Math.round(temp)}°C)`,
+      reasoning: `Extreme ambient temperature of <strong>${temp}°C</strong> detected. Solar vaporisation rate is spiked at ${evapo} mm/day. A light 15-minute drip pulse is advised to cool root beds and prevent flower drop.`,
+      metrics: {
+        soilMoisture: moisture,
+        rainForecast24h: `${Math.round(rainProb)}% (< 2 mm)`,
+        temperature: temp,
+        evapotranspiration: `${evapo} mm/d`,
+        waterSaved: '4,200 L',
+        crop: crop,
+        location: 'Current Farm'
+      },
+      schedule: {
+        optimalWindow: 'Late Afternoon (04:30 PM – 06:00 PM)',
+        runTime: '15 Minutes (Canopy Cooling Pulse)',
+        recommendedVolumePerSqm: 1.2
+      }
+    };
+  }
+
+  if (moisture < 35 && rainProb < 45) {
+    return {
+      needed: true,
+      decisionType: 'needed',
+      decision: 'YES — Irrigation Recommended (Apply 3.5 L/m²)',
+      reasoning: `Soil moisture (<strong>${moisture}%</strong>) has dropped below the critical threshold for ${crop}. With low rain probability (${Math.round(rainProb)}%) and temperature at ${temp}°C, scheduled drip irrigation is recommended to prevent drought stress.`,
+      metrics: {
+        soilMoisture: moisture,
+        rainForecast24h: `${Math.round(rainProb)}% (< 2 mm)`,
+        temperature: temp,
+        evapotranspiration: `${evapo} mm/d`,
+        waterSaved: '0 L (Irrigation Active)',
+        crop: crop,
+        location: 'Current Farm'
+      },
+      schedule: {
+        optimalWindow: 'Tomorrow, 5:30 AM – 7:30 AM (Low Evaporation)',
+        runTime: '60 Minutes (Active Drip Cycle)',
+        recommendedVolumePerSqm: 3.5
+      }
+    };
+  }
+
   return {
     needed: false,
-    decision: 'NO — Irrigation Delay Advised',
-    decisionColor: '#E65100',
-    headline: 'Rain Forecast Imminent — Conserve Water & Prevent Waterlogging',
-    reasoning: `Soil moisture currently stands at ${moisture}% (above minimum limit of 35%). The meteorological forecast indicates a ${rainProb}% likelihood of precipitation (approx 16-22 mm) within the next 24 hours. Supplemental irrigation now risks anaerobic root suffocation, fertilizer leaching, and increased fungal vulnerability.`,
+    decisionType: 'optimal',
+    decision: `Soil Moisture Optimal (${moisture}%) — Standby`,
+    reasoning: `Current root zone moisture (<strong>${moisture}%</strong>) is comfortably within the healthy turgor buffer for ${crop}. Atmospheric conditions are stable with ${Math.round(rainProb)}% rain probability. Supplemental watering today is unnecessary.`,
     metrics: {
       soilMoisture: moisture,
-      moistureThreshold: 35,
-      rainForecast24h: `${rainProb}% chance (18 mm estimated)`,
-      evapoTranspiration: '3.6 mm/day',
-      waterSavedEstimate: '16,500 Litres / Acre',
-      targetMoisture: 'Preserve Root Oxygenation'
+      rainForecast24h: `${Math.round(rainProb)}% (< 2 mm)`,
+      temperature: temp,
+      evapotranspiration: `${evapo} mm/d`,
+      waterSaved: '12,000 L',
+      crop: crop,
+      location: 'Current Farm'
     },
     schedule: {
-      optimalWindow: 'Delayed until Tomorrow 8:00 AM (Post-Rain Review)',
-      duration: '0 Minutes (Paused)',
-      recommendedVolume: '0 Litres (Rely on rain)',
-      deliveryMethod: 'Rainwater Utilization',
-      fertigationFriendly: false
-    },
-    farmerTips: [
-      'Ensure drainage furrows are cleared of debris to avoid standing puddles.',
-      'Leave main drip pump circuit on standby mode.',
-      'Check soil sensor readings 4 hours after rain ceases to re-evaluate moisture.'
-    ]
+      optimalWindow: 'Next scheduled check in 12–24 hours',
+      runTime: '0 Minutes (Standby Mode)',
+      recommendedVolumePerSqm: 0.0
+    }
   };
 }
 
@@ -488,75 +517,176 @@ async function mockGetWeatherAdvice(location = 'Nashik Valley, MH') {
  * Mock Sustainability Score
  */
 async function mockGetSustainabilityScore(data = {}) {
-  await simulateDelay(600);
+  await simulateDelay(150);
+
+  const crop = data.crop || 'Tomato';
+  const area = Number(data.area_hectares ?? data.areaHectares ?? 2.0);
+  const waterUsed = Number(data.water_used_liters ?? data.waterUsedLiters ?? 35000);
+  const fertilizer = Number(data.fertilizer_kg_per_hectare ?? data.fertilizerKgPerHa ?? 45);
+  const diseaseDetected = Boolean(data.disease_detected ?? data.diseaseDetected);
+  const irrigationMethod = String(data.irrigation_method ?? data.irrigationMethod ?? 'drip').toLowerCase().trim();
+  const pesticideUsed = Boolean(data.pesticide_used ?? data.pesticideUsed);
+
+  const refWaterMap = {
+    'Tomato': 28000,
+    'Potato': 25000,
+    'Wheat': 25000,
+    'Rice': 60000,
+    'Maize': 30000,
+    'Cotton': 35000,
+    'Sugarcane': 55000,
+    'Banana': 50000,
+  };
+  const refPerHa = refWaterMap[crop] || 28000;
+  const refTotal = refPerHa * area;
+
+  // 1. Water score
+  const waterScore = waterUsed <= 0 ? 100 : Math.round(Math.min(refTotal / waterUsed, 1.0) * 1000) / 10;
+
+  // 2. Fertilizer score
+  let fertScore = 100;
+  if (fertilizer > 40) {
+    fertScore = Math.max(0, Math.round((100 - (fertilizer - 40) * 2) * 10) / 10);
+  }
+
+  // 3. Disease score
+  const diseaseScore = diseaseDetected ? 40.0 : 100.0;
+
+  // 4. Irrigation method score
+  const methodScores = { drip: 100, sprinkler: 75, furrow: 50, flood: 30 };
+  const methodScore = methodScores[irrigationMethod] || 20;
+
+  // Composite weighted score
+  const overall = Math.round((waterScore * 0.35 + fertScore * 0.25 + diseaseScore * 0.20 + methodScore * 0.20) * 10) / 10;
+
+  let grade = 'F';
+  if (overall >= 90) grade = 'A';
+  else if (overall >= 75) grade = 'B';
+  else if (overall >= 60) grade = 'C';
+  else if (overall >= 45) grade = 'D';
+
+  const tierLabel = overall >= 90 ? 'Tier 1: Eco-Certified Leader'
+    : overall >= 75 ? 'Tier 2: Progressive Conservationist'
+    : overall >= 60 ? 'Tier 3: Moderate Efficiency Farm'
+    : 'Tier 4: High Resource Footprint';
+
+  const waterMetric = `${waterScore}/100 • ${waterScore >= 85 ? 'Tier 1 Efficiency' : waterScore >= 60 ? 'Moderate Efficiency' : 'Excess Withdrawal'}`;
+  const waterSummary = waterScore >= 85
+    ? 'Micro-drip deployment reduces runoff and evaporation losses significantly.'
+    : waterScore >= 60
+    ? 'Water withdrawal is moderate. Early morning scheduling can improve retention.'
+    : 'Water consumption is significantly above FAO regional reference volume for this crop.';
+
+  const fertMetric = `${fertScore}/100 • ${fertScore >= 90 ? 'Optimal Dosage' : fertScore >= 60 ? 'Moderate Usage' : 'Excess Chemical Risk'}`;
+  const fertSummary = fertScore >= 90
+    ? 'Balanced nutrient application within ideal range (20–40 kg/ha).'
+    : fertScore >= 60
+    ? 'Slightly elevated fertilizer dosage increases nitrate leaching vulnerability.'
+    : 'High fertilizer application causes soil acidification and significant runoff loss.';
+
+  const methodCapitalized = irrigationMethod.charAt(0).toUpperCase() + irrigationMethod.slice(1);
+  const irrigMetric = `${methodScore}/100 • ${methodCapitalized} Method`;
+  const irrigSummary = methodScore >= 90
+    ? 'High-efficiency drip lines deliver water directly to the crop root zone.'
+    : methodScore >= 70
+    ? 'Sprinklers provide uniform coverage with moderate aerial evaporative loss.'
+    : methodScore >= 45
+    ? 'Furrow distribution leads to moderate seepage and non-uniform infiltration.'
+    : 'Flood irrigation causes substantial surface evaporation, nutrient runoff, and waterlogging.';
+
+  const diseaseMetric = `${diseaseScore}/100 • ${diseaseScore >= 90 ? 'Healthy Canopy' : 'Infection Stress'}`;
+  const diseaseSummary = diseaseScore >= 90
+    ? 'No active pathogen detected. Robust plant immunity and canopy health maintained.'
+    : 'Active pathogen outbreak detected, causing physiological stress and necessitating treatment.';
+
+  const suggestions = [];
+  if (waterScore < 70) {
+    suggestions.append ? null : suggestions.push({
+      impact: 'High Impact',
+      title: 'Irrigation Timing & Volume Optimization',
+      description: `Water use efficiency is low (${waterScore}/100). Switch to drip or sprinkler irrigation and schedule in early morning to reduce evaporation.`
+    });
+  }
+  if (methodScore < 75) {
+    suggestions.push({
+      impact: 'High Impact',
+      title: 'Upgrade Water Delivery Infrastructure',
+      description: `Current irrigation method (${irrigationMethod}) has low water efficiency. Upgrading to drip irrigation can reduce water consumption by 30-50%.`
+    });
+  }
+  if (fertScore < 75) {
+    suggestions.push({
+      impact: 'High Impact',
+      title: 'Nutrient Split-Dosing & Soil Testing',
+      description: `Fertilizer application (${fertilizer} kg/ha) exceeds optimal range (20-40 kg/ha). Consider soil testing and split-application to reduce waste and runoff.`
+    });
+  }
+  if (diseaseDetected) {
+    suggestions.push({
+      impact: 'Urgent Action',
+      title: 'Biosecurity & Targeted Disease Control',
+      description: 'Disease was detected this week. Early treatment reduces crop loss and reduces the need for repeated chemical applications.'
+    });
+  }
+  if (pesticideUsed) {
+    suggestions.push({
+      impact: 'Medium Impact',
+      title: 'Integrated Pest Management (IPM)',
+      description: 'Pesticide use detected. Where possible, opt for IPM: biocontrol agents, resistant varieties, and pheromone traps to reduce chemical load.'
+    });
+  }
+  if (suggestions.length === 0) {
+    suggestions.push({
+      impact: 'Elite Practice',
+      title: 'Outstanding Sustainable Operations',
+      description: 'All monitored resource metrics are within optimal conservation limits. Keep up the disciplined stewardship!'
+    });
+  }
 
   return {
-    overallScore: 84,
-    grade: 'A',
-    tier: 'Eco-Certified Agri Leader',
-    percentile: 'Top 14% of regional farms',
-    summary: 'Outstanding water stewardship and bio-diversified pest management. Minor adjustments to energy timing and nitrogen cover-cropping will push this farm into the Elite 90+ bracket.',
+    overallScore: overall,
+    grade,
+    tier: tierLabel,
     breakdown: [
       {
-        id: 'water',
-        pillar: 'Water Stewardship',
-        score: 89,
-        maxScore: 100,
+        pillar: 'Water Efficiency',
+        score: waterScore,
+        color: '#0288D1',
+        summary: waterSummary,
+        metric: waterMetric
+      },
+      {
+        pillar: 'Chemical Reduction',
+        score: fertScore,
+        color: '#E65100',
+        summary: fertSummary,
+        metric: fertMetric
+      },
+      {
+        pillar: 'Irrigation & Energy',
+        score: methodScore,
         color: '#2E7D32',
-        summary: 'Sensor-driven drip irrigation reduced overwatering by 32% this season.',
-        metric: '32% Water Preserved'
+        summary: irrigSummary,
+        metric: irrigMetric
       },
       {
-        id: 'resource',
-        pillar: 'Resource & Soil Vitality',
-        score: 78,
-        maxScore: 100,
-        color: '#66BB6A',
-        summary: 'Soil organic carbon increased to 0.78%; synthetic urea dosage trimmed by 18%.',
-        metric: '0.78% Soil Carbon'
-      },
-      {
-        id: 'biodiversity',
-        pillar: 'Crop Health & Biodiversity',
-        score: 92,
-        maxScore: 100,
-        color: '#2E7D32',
-        summary: 'Intercropped flowering borders support high honeybee and ladybird beetle densities.',
-        metric: '92% Biome Balance'
-      },
-      {
-        id: 'carbon',
-        pillar: 'Carbon & Energy Efficiency',
-        score: 76,
-        maxScore: 100,
-        color: '#81C784',
-        summary: 'Solar-powered submersible pump handles 74% of daytime irrigation kilowatt-hours.',
-        metric: '74% Solar Powered'
+        pillar: 'Foliar & Plant Health',
+        score: diseaseScore,
+        color: '#7B1FA2',
+        summary: diseaseSummary,
+        metric: diseaseMetric
       }
     ],
-    suggestions: [
-      {
-        id: 'sug-1',
-        title: 'Shift Irrigation Run to Dawn (5:30 AM)',
-        category: 'Water Conservation',
-        impact: '+4 Points',
-        description: 'Morning runs minimize wind and solar vaporisation loss by 18% compared to mid-day or late afternoon cycles.'
-      },
-      {
-        id: 'sug-2',
-        title: 'Introduce Sesbania / Cowpea Green Manure in Plot C',
-        category: 'Soil Enrichment',
-        impact: '+6 Points',
-        description: 'Inverting a 45-day legume cover crop into the soil fixes approx 42 kg biological nitrogen per hectare.'
-      },
-      {
-        id: 'sug-3',
-        title: 'Apply Shredded Sugarcane Bagasse Mulch in High Beds',
-        category: 'Moisture Retention',
-        impact: '+3 Points',
-        description: 'Creates a thermal blanket around root zones, reducing topsoil crusting and temperature fluctuations.'
-      }
-    ]
+    suggestions,
+    metrics: {
+      crop,
+      areaHectares: area,
+      waterUsedLiters: waterUsed,
+      fertilizerKgPerHa: fertilizer,
+      irrigationMethod,
+      diseaseDetected,
+      pesticideUsed
+    }
   };
 }
 

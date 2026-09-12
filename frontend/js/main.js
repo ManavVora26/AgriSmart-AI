@@ -296,13 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Deep-linking via URL hash
-  if (window.location.hash) {
-    const hashId = window.location.hash.replace('#', '');
-    if (document.getElementById(hashId)) {
-      switchSection(hashId);
-    }
-  }
 
   /* ==========================================================
      2. Form Telemetry Sliders & Display Binding
@@ -927,21 +920,67 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ==========================================================
-     6. Smart Irrigation Controller
+     6. Smart Irrigation Controller (Interactive Scenario Simulator)
      ========================================================== */
   const irrigationDecisionHero = document.getElementById('irrigationDecisionHero');
   const irrigationDecisionTitle = document.getElementById('irrigationDecisionTitle');
+  const irrDecisionEyebrow = document.getElementById('irrDecisionEyebrow');
   const irrigationReasoningText = document.getElementById('irrigationReasoningText');
   const irrStatMoisture = document.getElementById('irrStatMoisture');
   const irrStatRain = document.getElementById('irrStatRain');
+  const irrStatEvapo = document.getElementById('irrStatEvapo');
+  const irrStatWaterSaved = document.getElementById('irrStatWaterSaved');
   const irrNextWindow = document.getElementById('irrNextWindow');
+  const irrRunTime = document.getElementById('irrRunTime');
   const toggleManualIrrigationBtn = document.getElementById('toggleManualIrrigationBtn');
 
+  // Simulator controls inside Section 3
+  const irrMoistureSlider = document.getElementById('irrMoistureSlider');
+  const irrMoistureVal = document.getElementById('irrMoistureVal');
+  const irrRainSlider = document.getElementById('irrRainSlider');
+  const irrRainVal = document.getElementById('irrRainVal');
+  const irrTempSlider = document.getElementById('irrTempSlider');
+  const irrTempVal = document.getElementById('irrTempVal');
+  const irrScenarioChips = document.querySelectorAll('.scenario-chip');
+
+  let irrDebounceTimer = null;
+  function triggerIrrigationUpdate(immediate = false) {
+    if (irrDebounceTimer) clearTimeout(irrDebounceTimer);
+    if (immediate) {
+      loadIrrigationAdvice();
+    } else {
+      irrDebounceTimer = setTimeout(loadIrrigationAdvice, 100);
+    }
+  }
+
   async function loadIrrigationAdvice() {
+    const moisture = irrMoistureSlider ? parseFloat(irrMoistureSlider.value) : (parseFloat(moistureInput?.value) || 68);
+    const rainProb = irrRainSlider ? parseFloat(irrRainSlider.value) : (parseFloat(rainProbInput?.value) || 35);
+    const temp = irrTempSlider ? parseFloat(irrTempSlider.value) : (parseFloat(tempInput?.value) || 28);
+
+    // Synchronize slider labels
+    if (irrMoistureVal) irrMoistureVal.textContent = `${moisture}%`;
+    if (irrRainVal) irrRainVal.textContent = `${rainProb}%`;
+    if (irrTempVal) irrTempVal.textContent = `${temp}°C`;
+
+    // Also sync Section 1 if sliders exist
+    if (moistureInput && moistureInput.value != moisture) {
+      moistureInput.value = moisture;
+      if (moistureDisplay) moistureDisplay.textContent = `${moisture}%`;
+    }
+    if (rainProbInput && rainProbInput.value != rainProb) {
+      rainProbInput.value = rainProb;
+      if (rainProbDisplay) rainProbDisplay.textContent = `${rainProb}%`;
+    }
+    if (tempInput && tempInput.value != temp) {
+      tempInput.value = temp;
+      if (tempDisplay) tempDisplay.textContent = `${temp}°C`;
+    }
+
     const data = {
-      moisture: moistureInput?.value || 68,
-      rainProb: rainProbInput?.value || (state.currentWeather?.current?.rainProb ?? 35),
-      temp: tempInput?.value || (state.currentWeather?.current?.temp ?? 28),
+      moisture,
+      rainProb,
+      temp,
       crop: document.getElementById('cropTypeSelect')?.value || 'Tomato',
       lat: state.currentLocation?.lat,
       lon: state.currentLocation?.lon,
@@ -960,19 +999,83 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderIrrigationAdvice(advice) {
     if (!irrigationDecisionHero) return;
 
-    if (advice.needed) {
-      irrigationDecisionHero.className = 'irrigation-decision-hero needed';
-      if (irrigationDecisionTitle) irrigationDecisionTitle.textContent = advice.decision;
-    } else {
-      irrigationDecisionHero.className = 'irrigation-decision-hero delay';
-      if (irrigationDecisionTitle) irrigationDecisionTitle.textContent = advice.decision;
+    const dType = advice.decisionType || (advice.needed ? 'needed' : 'delay');
+    irrigationDecisionHero.className = `irrigation-decision-hero ${dType}`;
+
+    if (irrigationDecisionTitle) irrigationDecisionTitle.textContent = advice.decision;
+
+    if (irrDecisionEyebrow) {
+      irrDecisionEyebrow.textContent = (
+        dType === 'needed' ? 'Active Action Required' :
+        dType === 'heatwave' ? 'Heatwave Thermal Alert' :
+        dType === 'optimal' ? 'Hydration Buffer Healthy' :
+        'Current System Decision'
+      );
+      irrDecisionEyebrow.style.color = (
+        dType === 'needed' ? '#2E7D32' :
+        dType === 'heatwave' ? '#C62828' :
+        dType === 'optimal' ? '#0288D1' :
+        'var(--color-warning)'
+      );
     }
 
     if (irrigationReasoningText) irrigationReasoningText.innerHTML = advice.reasoning;
     if (irrStatMoisture) irrStatMoisture.textContent = `${advice.metrics.soilMoisture}%`;
     if (irrStatRain) irrStatRain.textContent = advice.metrics.rainForecast24h;
+    if (irrStatEvapo && advice.metrics.evapotranspiration) irrStatEvapo.textContent = advice.metrics.evapotranspiration;
+    if (irrStatWaterSaved && advice.metrics.waterSaved) irrStatWaterSaved.textContent = advice.metrics.waterSaved;
     if (irrNextWindow && advice.schedule) irrNextWindow.textContent = advice.schedule.optimalWindow;
+    if (irrRunTime && advice.schedule) irrRunTime.textContent = advice.schedule.runTime || (advice.needed ? '60 Minutes (Active Cycle)' : '0 Minutes (Standby Mode)');
   }
+
+  // Bind scenario preset chips
+  if (irrScenarioChips && irrScenarioChips.length > 0) {
+    irrScenarioChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        irrScenarioChips.forEach(c => {
+          c.classList.remove('active');
+          c.style.boxShadow = 'none';
+        });
+        chip.classList.add('active');
+        chip.style.boxShadow = '0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-primary-light)';
+
+        const m = parseFloat(chip.dataset.moisture);
+        const r = parseFloat(chip.dataset.rain);
+        const t = parseFloat(chip.dataset.temp);
+
+        if (irrMoistureSlider) irrMoistureSlider.value = m;
+        if (irrRainSlider) irrRainSlider.value = r;
+        if (irrTempSlider) irrTempSlider.value = t;
+
+        triggerIrrigationUpdate(true);
+      });
+    });
+  }
+
+  // Bind Section 3 sliders
+  [irrMoistureSlider, irrRainSlider, irrTempSlider].forEach(slider => {
+    if (!slider) return;
+    slider.addEventListener('input', () => {
+      // Clear preset chip selection when manually dragging
+      irrScenarioChips.forEach(c => {
+        c.classList.remove('active');
+        c.style.boxShadow = 'none';
+      });
+      triggerIrrigationUpdate(false);
+    });
+    slider.addEventListener('change', () => triggerIrrigationUpdate(true));
+  });
+
+  // Also bind Section 1 sliders to keep both views in sync
+  [moistureInput, rainProbInput, tempInput].forEach(slider => {
+    if (!slider) return;
+    slider.addEventListener('input', () => {
+      if (irrMoistureSlider && moistureInput) irrMoistureSlider.value = moistureInput.value;
+      if (irrRainSlider && rainProbInput) irrRainSlider.value = rainProbInput.value;
+      if (irrTempSlider && tempInput) irrTempSlider.value = tempInput.value;
+      triggerIrrigationUpdate(false);
+    });
+  });
 
   if (toggleManualIrrigationBtn) {
     toggleManualIrrigationBtn.addEventListener('click', () => {
@@ -1091,16 +1194,114 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ==========================================================
-     8. Sustainability Score Controller
+     8. Sustainability Score Controller (Interactive Simulator)
      ========================================================== */
   const sustainabilityGaugeCircle = document.getElementById('sustainabilityGaugeCircle');
   const sustainabilityScoreNum = document.getElementById('sustainabilityScoreNum');
+  const sustainabilityGradeBadge = document.getElementById('sustainabilityGradeBadge');
+  const sustainabilityTierBadge = document.getElementById('sustainabilityTierBadge');
+  const sustainabilityHeadline = document.getElementById('sustainabilityHeadline');
+  const sustainabilityNarrative = document.getElementById('sustainabilityNarrative');
   const sustainabilityPillarsContainer = document.getElementById('sustainabilityPillarsContainer');
   const sustainabilitySuggestionsContainer = document.getElementById('sustainabilitySuggestionsContainer');
 
+  // Simulator controls
+  const sustCropSelect = document.getElementById('sustCropSelect');
+  const sustAreaInput = document.getElementById('sustAreaInput');
+  const sustAreaDisplay = document.getElementById('sustAreaDisplay');
+  const sustWaterInput = document.getElementById('sustWaterInput');
+  const sustWaterDisplay = document.getElementById('sustWaterDisplay');
+  const sustWaterRefHint = document.getElementById('sustWaterRefHint');
+  const sustWaterStatusHint = document.getElementById('sustWaterStatusHint');
+  const sustFertInput = document.getElementById('sustFertInput');
+  const sustFertDisplay = document.getElementById('sustFertDisplay');
+  const sustFertStatusHint = document.getElementById('sustFertStatusHint');
+  const sustIrrigGroup = document.getElementById('sustIrrigGroup');
+  const sustIrrigMethod = document.getElementById('sustIrrigMethod');
+  const sustDiseaseToggle = document.getElementById('sustDiseaseToggle');
+  const sustPesticideToggle = document.getElementById('sustPesticideToggle');
+  const sustResetBtn = document.getElementById('sustResetBtn');
+
+  // Matrix display elements
+  const matrixWaterVal = document.getElementById('matrixWaterVal');
+  const matrixFertVal = document.getElementById('matrixFertVal');
+  const matrixIrrigVal = document.getElementById('matrixIrrigVal');
+  const matrixHealthVal = document.getElementById('matrixHealthVal');
+
+  const FAO_WATER_MAP = {
+    'Tomato': 28000,
+    'Potato': 25000,
+    'Wheat': 25000,
+    'Rice': 60000,
+    'Maize': 30000,
+    'Cotton': 35000,
+  };
+
+  let sustDebounceTimer = null;
+  function triggerSustainabilityUpdate(immediate = false) {
+    if (sustDebounceTimer) clearTimeout(sustDebounceTimer);
+    if (immediate) {
+      loadSustainability();
+    } else {
+      sustDebounceTimer = setTimeout(loadSustainability, 120);
+    }
+  }
+
   async function loadSustainability() {
+    const crop = sustCropSelect?.value || 'Tomato';
+    const area = parseFloat(sustAreaInput?.value || 2.0);
+    const water = parseFloat(sustWaterInput?.value || 35000);
+    const fert = parseFloat(sustFertInput?.value || 45);
+    const method = sustIrrigMethod?.value || 'drip';
+    const disease = Boolean(sustDiseaseToggle?.checked);
+    const pesticide = Boolean(sustPesticideToggle?.checked);
+
+    // Update real-time label values
+    if (sustAreaDisplay) sustAreaDisplay.textContent = `${area.toFixed(1)} Hectares`;
+    if (sustWaterDisplay) sustWaterDisplay.textContent = `${water.toLocaleString()} Litres`;
+    if (sustFertDisplay) sustFertDisplay.textContent = `${fert} kg/ha`;
+
+    // Dynamic hints
+    const refPerHa = FAO_WATER_MAP[crop] || 28000;
+    const totalRef = refPerHa * area;
+    if (sustWaterRefHint) {
+      sustWaterRefHint.innerHTML = `FAO Reference Target: <strong>${totalRef.toLocaleString()} L</strong>`;
+    }
+    if (sustWaterStatusHint) {
+      if (water <= totalRef) {
+        sustWaterStatusHint.textContent = 'Within Conservation Budget';
+        sustWaterStatusHint.style.color = '#2E7D32';
+      } else {
+        const excessPct = Math.round(((water - totalRef) / totalRef) * 100);
+        sustWaterStatusHint.textContent = `+${excessPct}% Above Target`;
+        sustWaterStatusHint.style.color = '#E65100';
+      }
+    }
+
+    if (sustFertStatusHint) {
+      if (fert <= 40) {
+        sustFertStatusHint.textContent = 'Optimal Sustainable Dosage';
+        sustFertStatusHint.style.color = '#2E7D32';
+      } else {
+        const excessKg = fert - 40;
+        sustFertStatusHint.textContent = `+${excessKg} kg/ha Excess (-${excessKg * 2} pts)`;
+        sustFertStatusHint.style.color = '#E65100';
+      }
+    }
+
+    const payload = {
+      crop,
+      area_hectares: area,
+      water_used_liters: water,
+      fertilizer_kg_per_hectare: fert,
+      irrigation_method: method,
+      disease_detected: disease,
+      pesticide_used: pesticide,
+    };
+
     try {
-      const data = await window.AgriSmartAPI.getSustainabilityScore();
+      const data = await window.AgriSmartAPI.getSustainabilityScore(payload);
+      state.currentSustainability = data;
       renderSustainability(data);
     } catch (err) {
       console.error('Sustainability score error:', err);
@@ -1108,13 +1309,61 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderSustainability(data) {
-    if (sustainabilityScoreNum) sustainabilityScoreNum.textContent = data.overallScore;
+    if (sustainabilityScoreNum) sustainabilityScoreNum.textContent = Math.round(data.overallScore);
 
-    // Animate circular gauge
+    // Animate circular gauge & dynamic stroke color
     if (sustainabilityGaugeCircle) {
       const circumference = 314.159;
       const offset = circumference * (1 - (data.overallScore / 100));
       sustainabilityGaugeCircle.style.strokeDashoffset = offset;
+
+      if (data.overallScore >= 85) {
+        sustainabilityGaugeCircle.style.stroke = 'var(--color-primary)';
+      } else if (data.overallScore >= 65) {
+        sustainabilityGaugeCircle.style.stroke = '#F59E0B';
+      } else {
+        sustainabilityGaugeCircle.style.stroke = '#EF4444';
+      }
+    }
+
+    // Grade badge
+    if (sustainabilityGradeBadge && data.grade) {
+      sustainabilityGradeBadge.textContent = `Grade ${data.grade}`;
+      sustainabilityGradeBadge.style.color = (
+        data.grade === 'A' ? '#2E7D32' :
+        data.grade === 'B' ? '#15803D' :
+        data.grade === 'C' ? '#D97706' :
+        '#DC2626'
+      );
+    }
+
+    // Tier badge & narrative
+    if (sustainabilityTierBadge && data.tier) {
+      sustainabilityTierBadge.textContent = data.tier;
+    }
+    if (sustainabilityHeadline) {
+      sustainabilityHeadline.textContent = (
+        data.overallScore >= 85 ? 'Top 14% Regional Eco-Efficiency' :
+        data.overallScore >= 65 ? 'Moderate Resource Efficiency' :
+        'High Resource Footprint Alert'
+      );
+    }
+    if (sustainabilityNarrative) {
+      sustainabilityNarrative.textContent = (
+        data.overallScore >= 85
+          ? 'Sensor-driven precision drip scheduling and controlled fertilizer dosage keep your farm in the sustainable green zone.'
+          : data.overallScore >= 65
+          ? 'Resource inputs are partially exceeding optimal regenerative limits. Adjust water volumes or switch irrigation methods to improve score.'
+          : 'High resource consumption or disease stress detected. Follow prioritized intervention steps below to mitigate loss.'
+      );
+    }
+
+    // Matrix display
+    if (data.breakdown && data.breakdown.length >= 4) {
+      if (matrixWaterVal) matrixWaterVal.textContent = `${Math.round(data.breakdown[0].score)}%`;
+      if (matrixFertVal) matrixFertVal.textContent = `${Math.round(data.breakdown[1].score)}%`;
+      if (matrixIrrigVal) matrixIrrigVal.textContent = `${Math.round(data.breakdown[2].score)}%`;
+      if (matrixHealthVal) matrixHealthVal.textContent = `${Math.round(data.breakdown[3].score)}%`;
     }
 
     // Render pillars
@@ -1123,7 +1372,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="sustainability-pillar-card">
           <div class="pillar-header">
             <span class="pillar-title">${pillar.pillar}</span>
-            <span class="pillar-score">${pillar.score}/100</span>
+            <span class="pillar-score" style="color: ${pillar.color};">${Math.round(pillar.score)}/100</span>
           </div>
           <div class="confidence-track" style="height: 8px;">
             <div class="confidence-fill" style="width: ${pillar.score}%; background: ${pillar.color};"></div>
@@ -1146,6 +1395,53 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `).join('');
     }
+  }
+
+  // Segmented control click handler
+  if (sustIrrigGroup) {
+    const btns = sustIrrigGroup.querySelectorAll('.segmented-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        btns.forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-checked', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-checked', 'true');
+        if (sustIrrigMethod) sustIrrigMethod.value = btn.dataset.method;
+        triggerSustainabilityUpdate(true);
+      });
+    });
+  }
+
+  // Sliders and select event listeners
+  [sustCropSelect, sustAreaInput, sustWaterInput, sustFertInput, sustDiseaseToggle, sustPesticideToggle].forEach(el => {
+    if (!el) return;
+    el.addEventListener('input', () => triggerSustainabilityUpdate(false));
+    el.addEventListener('change', () => triggerSustainabilityUpdate(true));
+  });
+
+  // Reset button handler
+  if (sustResetBtn) {
+    sustResetBtn.addEventListener('click', () => {
+      if (sustCropSelect) sustCropSelect.value = 'Tomato';
+      if (sustAreaInput) sustAreaInput.value = '2.0';
+      if (sustWaterInput) sustWaterInput.value = '35000';
+      if (sustFertInput) sustFertInput.value = '45';
+      if (sustIrrigMethod) sustIrrigMethod.value = 'drip';
+      if (sustDiseaseToggle) sustDiseaseToggle.checked = false;
+      if (sustPesticideToggle) sustPesticideToggle.checked = false;
+
+      const btns = sustIrrigGroup?.querySelectorAll('.segmented-btn');
+      btns?.forEach(b => {
+        const isDrip = b.dataset.method === 'drip';
+        b.classList.toggle('active', isDrip);
+        b.setAttribute('aria-checked', isDrip ? 'true' : 'false');
+      });
+
+      showToast('Restored baseline telemetry (Score: ~94 / Grade A)', 'info');
+      triggerSustainabilityUpdate(true);
+    });
   }
 
   /* ==========================================================
@@ -1357,6 +1653,359 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ==========================================================
+     10B. Interactive Agent Cognitive Simulator Controller
+     ========================================================== */
+  const simMoistureSlider = document.getElementById('simMoistureSlider');
+  const simMoistureVal = document.getElementById('simMoistureVal');
+  const simRainSlider = document.getElementById('simRainSlider');
+  const simRainVal = document.getElementById('simRainVal');
+  const simTempSlider = document.getElementById('simTempSlider');
+  const simTempVal = document.getElementById('simTempVal');
+  const simHumiditySlider = document.getElementById('simHumiditySlider');
+  const simHumidityVal = document.getElementById('simHumidityVal');
+  const simSolarSlider = document.getElementById('simSolarSlider');
+  const simSolarVal = document.getElementById('simSolarVal');
+
+  const simPipelineTriggerTitle = document.getElementById('simPipelineTriggerTitle');
+  const simPipelineTriggerDesc = document.getElementById('simPipelineTriggerDesc');
+  const simPipelineSensingMeta = document.getElementById('simPipelineSensingMeta');
+
+  const simPipelineReasoningTitle = document.getElementById('simPipelineReasoningTitle');
+  const simPipelineReasoningDesc = document.getElementById('simPipelineReasoningDesc');
+  const simPipelineModelMeta = document.getElementById('simPipelineModelMeta');
+
+  const simPipelineActuatorBox = document.getElementById('simPipelineActuatorBox');
+  const simActuatorBadge = document.getElementById('simActuatorBadge');
+  const simActuatorStatusText = document.getElementById('simActuatorStatusText');
+  const simActuatorTargetTitle = document.getElementById('simActuatorTargetTitle');
+  const simActuatorActionDesc = document.getElementById('simActuatorActionDesc');
+  const simActuatorHardwareMeta = document.getElementById('simActuatorHardwareMeta');
+
+  const agentSimScenarioChips = document.getElementById('agentSimScenarioChips');
+  const simResetBtn = document.getElementById('simResetBtn');
+  const simExecuteCycleBtn = document.getElementById('simExecuteCycleBtn');
+
+  let currentSimEvaluation = null;
+
+  const agentScenarioPresets = {
+    rain: { moisture: 65, rain: 70, temp: 26, humidity: 80, solar: 250 },
+    blight: { moisture: 55, rain: 25, temp: 28, humidity: 88, solar: 400 },
+    solar: { moisture: 35, rain: 5, temp: 31, humidity: 45, solar: 890 },
+    heatwave: { moisture: 22, rain: 0, temp: 43, humidity: 25, solar: 950 }
+  };
+
+  function updateAgenticSimulator() {
+    if (!simMoistureSlider) return;
+
+    const moisture = parseInt(simMoistureSlider.value, 10);
+    const rain = parseInt(simRainSlider.value, 10);
+    const temp = parseInt(simTempSlider.value, 10);
+    const humidity = parseInt(simHumiditySlider.value, 10);
+    const solar = parseInt(simSolarSlider.value, 10);
+
+    if (simMoistureVal) simMoistureVal.textContent = `${moisture}%`;
+    if (simRainVal) simRainVal.textContent = `${rain}%`;
+    if (simTempVal) simTempVal.textContent = `${temp}°C`;
+    if (simHumidityVal) simHumidityVal.textContent = `${humidity}%`;
+    if (simSolarVal) simSolarVal.textContent = `${solar} W/m²`;
+
+    let evalResult = {};
+
+    // 1. Rain Surge / Smart Valve Hold
+    if (rain >= 50 && moisture >= 40) {
+      evalResult = {
+        theme: 'rain',
+        triggerTitle: `Precipitation Surge Detected (${rain}% Chance)`,
+        triggerDesc: `Rain radar surge to ${rain}% with projected rainfall within 12h. Soil moisture currently ${moisture}%.`,
+        triggerMeta: `Source: Open-Meteo Radar API + Field Tensiometer #2`,
+        reasoningTitle: `Root Hypoxia & Nitrogen Leaching Prevention`,
+        reasoningDesc: `Soil moisture (${moisture}%) comfortably exceeds the 35% wilting threshold. Imminent rainfall will recharge the root zone naturally. Irrigating now would oversaturate root pockets, induce anaerobic stress, and leach soluble Nitrogen fertilizer.`,
+        reasoningMeta: `Engine: FAO-56 Water Balance + Leaching Risk Matrix`,
+        actuatorStatus: `PAUSED (RAIN HOLD)`,
+        actuatorTarget: `Smart Drip Valve #2 (Plot A)`,
+        actuatorActionDesc: `Auto-paused drip manifold valve until tomorrow 8:00 AM. Estimated water conserved: ~${Math.round(14000 * (rain / 70)).toLocaleString()} Liters.`,
+        actuatorMeta: `Actuator: Solenoid Relay Valve #2 (Drip Line)`,
+        boxBg: '#FFF8E1',
+        boxBorder: '#FFE082',
+        boxBorderLeft: '#E65100',
+        badgeBg: 'rgba(230,81,0,0.15)',
+        badgeColor: '#E65100',
+        dotColor: '#E65100',
+        feedItem: {
+          type: 'autonomous',
+          badge: 'Autonomous Action',
+          badgeClass: 'badge-autonomous',
+          title: `Postponed Scheduled Drip Valve #2 — Rain Forecast (${rain}%)`,
+          trigger: `Rain probability at ${rain}% + Soil moisture at ${moisture}%.`,
+          reasoning: `Natural precipitation will recharge root zone without depleting farm groundwater or leaching nitrogen.`,
+          actionTaken: `Dispatched electrical hold command to Drip Valve #2 until next moisture check cycle.`
+        }
+      };
+    }
+    // 2. Fungal Blight Risk / Pathogen Alert
+    else if (humidity >= 75 && temp >= 22 && temp <= 32) {
+      evalResult = {
+        theme: 'blight',
+        triggerTitle: `Fungal Microclimate Incubation Threshold Crossed`,
+        triggerDesc: `Relative humidity sustained at ${humidity}% with ambient temperature of ${temp}°C. Leaf wetness index elevated.`,
+        triggerMeta: `Source: Microclimate Canopy Sensor Node #3`,
+        reasoningTitle: `Alternaria solani Germination Profile Match`,
+        reasoningDesc: `Sustained high humidity (${humidity}%) at ${temp}°C accelerates spore germination. Prophylactic intervention now prevents up to 85% of foliar damage before visible lesions develop.`,
+        reasoningMeta: `Engine: Plant Pathology Spore Germination Predictor`,
+        actuatorStatus: `SCHEDULED (PROPHYLACTIC BIO-SPRAY)`,
+        actuatorTarget: `Autonomous Drone Sprayer / Bio-Mist Kit`,
+        actuatorActionDesc: `Scheduled bio-fungicide (Trichoderma viride @ 2.5g/L) dispersal for sunrise (6:30 AM).`,
+        actuatorMeta: `Actuator: Automated Farm Notification + Drone Flight Task`,
+        boxBg: '#FFEBEE',
+        boxBorder: '#FFCDD2',
+        boxBorderLeft: '#C62828',
+        badgeBg: 'rgba(198,40,40,0.15)',
+        badgeColor: '#C62828',
+        dotColor: '#C62828',
+        feedItem: {
+          type: 'alert',
+          badge: 'Pathogen Alert',
+          badgeClass: 'badge-alert',
+          title: `Fungal Sporulation Risk Flagged (RH ${humidity}%, ${temp}°C)`,
+          trigger: `Ambient humidity sustained above ${humidity}% at ${temp}°C.`,
+          reasoning: `Microclimate matches Alternaria solani incubation criteria. Preventative bio-spray indicated.`,
+          actionTaken: `Dispatched prophylactic bio-fungicide recommendation and alerted Farmer Dashboard.`
+        }
+      };
+    }
+    // 3. Peak Solar Fertigation / Free Energy Optimization
+    else if (solar >= 700 && rain < 40 && moisture <= 55) {
+      evalResult = {
+        theme: 'solar',
+        triggerTitle: `Peak Solar Irradiance Window (${solar} W/m²)`,
+        triggerDesc: `Photovoltaic rooftop array generating surplus clean energy (4.4 kW). Farm electricity grid draw tariff is 0.00 INR.`,
+        triggerMeta: `Source: 5kW Solar Inverter Smart Telemetry Gateway`,
+        reasoningTitle: `Zero-Cost Solar-Synchronized Fertigation`,
+        reasoningDesc: `Soil moisture (${moisture}%) requires replenishment. Running water pumps and Venturi nutrient injectors during peak solar eliminates utility grid costs while maintaining peak drip pressure.`,
+        reasoningMeta: `Engine: Agri-Photovoltaic Smart Energy Router`,
+        actuatorStatus: `RUNNING (SOLAR SYNC)`,
+        actuatorTarget: `Solar VFD Water Pump & Venturi Injector #1`,
+        actuatorActionDesc: `Engaged drip pressurization and soluble Potassium injection across 2.5 acres at 0 INR electricity cost.`,
+        actuatorMeta: `Actuator: 3-Phase Solar VFD Inverter Controller`,
+        boxBg: '#E8F5E9',
+        boxBorder: '#A5D6A7',
+        boxBorderLeft: '#2E7D32',
+        badgeBg: 'rgba(46,125,50,0.15)',
+        badgeColor: '#2E7D32',
+        dotColor: '#2E7D32',
+        feedItem: {
+          type: 'autonomous',
+          badge: 'Solar Optimization',
+          badgeClass: 'badge-autonomous',
+          title: `Solar-Synchronized Fertigation Cycle Started (${solar} W/m²)`,
+          trigger: `Solar irradiance peaked at ${solar} W/m² (zero grid power tariff).`,
+          reasoning: `Running irrigation pump now delivers required water & Potassium at zero utility cost.`,
+          actionTaken: `Engaged Solar VFD pump #1 and injected 2.5 kg Potassium Sulfate across Plot A.`
+        }
+      };
+    }
+    // 4. Extreme Heatwave / Canopy Mist Cooling
+    else if (temp >= 38 && moisture <= 40) {
+      evalResult = {
+        theme: 'heatwave',
+        triggerTitle: `Extreme Heatwave & Stomatal Stress (${temp}°C)`,
+        triggerDesc: `Ambient temperature reached ${temp}°C with low humidity (${humidity}%). Vapor Pressure Deficit (VPD) in critical stress zone.`,
+        triggerMeta: `Source: Hyper-local Weather Station + Canopy Pyrometer`,
+        reasoningTitle: `Transpirational Shock & Flower Drop Prevention`,
+        reasoningDesc: `High heat (${temp}°C) induces flower abortion and stomatal closure, halting photosynthesis. An ultra-fine 15-minute overhead mist pulse cools the leaf canopy by ~4.5°C without waterlogging root zones.`,
+        reasoningMeta: `Engine: Thermal Vapor Pressure Deficit (VPD) Model`,
+        actuatorStatus: `ACTIVE (15-MIN COOLING PULSE)`,
+        actuatorTarget: `Overhead Micro-Sprinkler Zone B`,
+        actuatorActionDesc: `Activated 15-minute pulsed cooling mist. Canopy temperature drop target: -4.5°C.`,
+        actuatorMeta: `Actuator: High-Pressure Mist Nozzle Solenoid #4`,
+        boxBg: '#FBE9E7',
+        boxBorder: '#FFCCBC',
+        boxBorderLeft: '#D84315',
+        badgeBg: 'rgba(216,67,21,0.15)',
+        badgeColor: '#D84315',
+        dotColor: '#D84315',
+        feedItem: {
+          type: 'alert',
+          badge: 'Heatwave Action',
+          badgeClass: 'badge-alert',
+          title: `Autonomous Canopy Cooling Pulse Dispatched (${temp}°C)`,
+          trigger: `Extreme heat (${temp}°C) and elevated vapor pressure deficit detected.`,
+          reasoning: `Micro-pulse cooling prevents blossom end drop and maintains cellular respiration.`,
+          actionTaken: `Triggered 15-minute overhead canopy cooling pulse via Solenoid #4.`
+        }
+      };
+    }
+    // 5. Dry & Depleted
+    else if (moisture <= 35 && rain < 35) {
+      evalResult = {
+        theme: 'dry',
+        triggerTitle: `Soil Moisture Depleted (${moisture}%)`,
+        triggerDesc: `Soil moisture dropped below the 35% critical management threshold. No precipitation in forecast.`,
+        triggerMeta: `Source: Dual-Depth FDR Soil Probe #1`,
+        reasoningTitle: `FAO-56 Readily Available Water (RAW) Depletion`,
+        reasoningDesc: `Root zone moisture is depleted. Prolonged deficit will reduce fruit set and induce drought dormancy. Deep root irrigation required immediately.`,
+        reasoningMeta: `Engine: FAO-56 Crop Evapotranspiration Calculator`,
+        actuatorStatus: `IRRIGATING (DEEP SOAK)`,
+        actuatorTarget: `Main Drip Line Solenoid Valve #1`,
+        actuatorActionDesc: `Dispatched open command for 45-minute scheduled soak (Volume: 12,500 L).`,
+        actuatorMeta: `Actuator: Main Field Pump Relay #1`,
+        boxBg: '#E1F5FE',
+        boxBorder: '#B3E5FC',
+        boxBorderLeft: '#0288D1',
+        badgeBg: 'rgba(2,136,209,0.15)',
+        badgeColor: '#0288D1',
+        dotColor: '#0288D1',
+        feedItem: {
+          type: 'autonomous',
+          badge: 'Irrigation Active',
+          badgeClass: 'badge-autonomous',
+          title: `Root Zone Irrigation Dispatched (${moisture}% Moisture)`,
+          trigger: `Soil moisture dropped below critical management boundary (35%).`,
+          reasoning: `Crop is experiencing water deficit. 45-minute deep soak restores root field capacity.`,
+          actionTaken: `Opened Solenoid Valve #1 for 45-minute cycle.`
+        }
+      };
+    }
+    // 6. Optimal Baseline
+    else {
+      evalResult = {
+        theme: 'optimal',
+        triggerTitle: `Steady-State Microclimate Telemetry`,
+        triggerDesc: `Soil moisture at ${moisture}%, temp ${temp}°C, rain chance ${rain}%, solar ${solar} W/m².`,
+        triggerMeta: `Source: Unified Multi-Sensor Array`,
+        reasoningTitle: `Agronomic Parameters Within Nominal Safety Range`,
+        reasoningDesc: `Soil moisture is within the optimal 50%–70% field capacity range. Microclimate conditions do not favor pathogen propagation. Systems maintained in passive standby.`,
+        reasoningMeta: `Engine: Multi-Parameter Agro-Safety Guardrail`,
+        actuatorStatus: `STANDBY (MONITORING)`,
+        actuatorTarget: `All Field Actuators & Solenoids`,
+        actuatorActionDesc: `All systems nominal. Background sensor scan interval maintained at 30 minutes.`,
+        actuatorMeta: `Actuator: Automated Heartbeat Daemon`,
+        boxBg: '#F8FCF6',
+        boxBorder: '#C8E6C9',
+        boxBorderLeft: '#2E7D32',
+        badgeBg: 'rgba(46,125,50,0.12)',
+        badgeColor: '#2E7D32',
+        dotColor: '#2E7D32',
+        feedItem: {
+          type: 'routine',
+          badge: 'Telemetry Check',
+          badgeClass: 'badge-routine',
+          title: `Autonomous Agro-Safety Scan Completed`,
+          trigger: `Periodic telemetry check at ${moisture}% moisture and ${temp}°C.`,
+          reasoning: `All agronomic and environmental parameters within safe boundary limits.`,
+          actionTaken: `Maintained standby status; next scheduled diagnostic in 30 minutes.`
+        }
+      };
+    }
+
+    currentSimEvaluation = evalResult;
+
+    // Update DOM
+    if (simPipelineTriggerTitle) simPipelineTriggerTitle.textContent = evalResult.triggerTitle;
+    if (simPipelineTriggerDesc) simPipelineTriggerDesc.textContent = evalResult.triggerDesc;
+    if (simPipelineSensingMeta) simPipelineSensingMeta.textContent = evalResult.triggerMeta;
+
+    if (simPipelineReasoningTitle) simPipelineReasoningTitle.textContent = evalResult.reasoningTitle;
+    if (simPipelineReasoningDesc) simPipelineReasoningDesc.textContent = evalResult.reasoningDesc;
+    if (simPipelineModelMeta) simPipelineModelMeta.textContent = evalResult.reasoningMeta;
+
+    if (simPipelineActuatorBox) {
+      simPipelineActuatorBox.style.background = evalResult.boxBg;
+      simPipelineActuatorBox.style.borderColor = evalResult.boxBorder;
+      simPipelineActuatorBox.style.borderLeftColor = evalResult.boxBorderLeft;
+    }
+    if (simActuatorBadge) {
+      simActuatorBadge.style.background = evalResult.badgeBg;
+      simActuatorBadge.style.color = evalResult.badgeColor;
+      const dot = simActuatorBadge.querySelector('.actuator-pulse-dot');
+      if (dot) dot.style.background = evalResult.dotColor;
+    }
+    if (simActuatorStatusText) simActuatorStatusText.textContent = evalResult.actuatorStatus;
+    if (simActuatorTargetTitle) simActuatorTargetTitle.textContent = evalResult.actuatorTarget;
+    if (simActuatorActionDesc) simActuatorActionDesc.textContent = evalResult.actuatorActionDesc;
+    if (simActuatorHardwareMeta) {
+      simActuatorHardwareMeta.textContent = evalResult.actuatorMeta;
+      simActuatorHardwareMeta.style.color = evalResult.badgeColor;
+    }
+  }
+
+  function applyAgenticScenario(scenarioKey) {
+    const config = agentScenarioPresets[scenarioKey];
+    if (!config) return;
+
+    if (simMoistureSlider) simMoistureSlider.value = config.moisture;
+    if (simRainSlider) simRainSlider.value = config.rain;
+    if (simTempSlider) simTempSlider.value = config.temp;
+    if (simHumiditySlider) simHumiditySlider.value = config.humidity;
+    if (simSolarSlider) simSolarSlider.value = config.solar;
+
+    document.querySelectorAll('.agent-scenario-chip').forEach(chip => {
+      if (chip.getAttribute('data-scenario') === scenarioKey) {
+        chip.classList.add('active');
+        chip.style.borderColor = chip.style.color;
+      } else {
+        chip.classList.remove('active');
+        chip.style.borderColor = 'var(--color-border)';
+      }
+    });
+
+    updateAgenticSimulator();
+  }
+
+  // Bind slider events
+  [simMoistureSlider, simRainSlider, simTempSlider, simHumiditySlider, simSolarSlider].forEach(slider => {
+    if (slider) {
+      slider.addEventListener('input', () => {
+        document.querySelectorAll('.agent-scenario-chip').forEach(c => c.classList.remove('active'));
+        updateAgenticSimulator();
+      });
+    }
+  });
+
+  // Bind preset chip clicks
+  if (agentSimScenarioChips) {
+    agentSimScenarioChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('.agent-scenario-chip');
+      if (!chip) return;
+      const scenario = chip.getAttribute('data-scenario');
+      if (scenario) applyAgenticScenario(scenario);
+    });
+  }
+
+  // Bind Execute & Log to Feed
+  if (simExecuteCycleBtn) {
+    simExecuteCycleBtn.addEventListener('click', () => {
+      if (!currentSimEvaluation || !currentSimEvaluation.feedItem) return;
+
+      const item = {
+        ...currentSimEvaluation.feedItem,
+        time: 'Just now',
+        id: 'sim-' + Date.now()
+      };
+
+      state.agenticEvents.unshift(item);
+      renderAgenticTimeline();
+      showToast(`Autonomous Agent: ${item.title}`, 'success');
+
+      // Scroll smoothly to timeline
+      if (agenticTimelineContainer) {
+        agenticTimelineContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }
+
+  // Bind Reset button
+  if (simResetBtn) {
+    simResetBtn.addEventListener('click', () => {
+      applyAgenticScenario('rain');
+      showToast('Agent simulator reset to baseline scenario.', 'info');
+    });
+  }
+
+  // Initialize simulator state on load
+  updateAgenticSimulator();
+
+  /* ==========================================================
      11. Toast Notification Utility
      ========================================================== */
   const toastContainer = document.getElementById('toastContainer');
@@ -1404,6 +2053,7 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
       case 'section-agentic':
         if (state.agenticEvents.length === 0) loadAgenticFeed();
+        updateAgenticSimulator();
         break;
       default:
         break;
@@ -1439,6 +2089,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const defaultSampleBtn = document.querySelector('.sample-chip[data-preset="tomato_blight"]');
   if (defaultSampleBtn) {
     defaultSampleBtn.click();
+  }
+
+  // Deep-linking via URL hash (safely executed after all modules are initialized)
+  if (window.location.hash) {
+    const hashId = window.location.hash.replace('#', '');
+    if (document.getElementById(hashId)) {
+      switchSection(hashId);
+    }
   }
 
 });

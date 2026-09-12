@@ -445,8 +445,11 @@ async def api_irrigation_advice(
     )
 
     needed = res.get("irrigate", False)
+    evapo = round(3.2 + (effective_temp - 25) * 0.15, 1) if effective_temp > 25 else 3.2
 
     if effective_rain_prob >= 60 and moisture > 35:
+        decision_type = "delay"
+        needed = False
         decision = f"Irrigation Delayed — Rain Incoming ({int(effective_rain_prob)}%)"
         reasoning = (
             f"Upcoming precipitation forecast of <strong>{int(effective_rain_prob)}%</strong> is expected within the next 24 hours at {resolved_location}. "
@@ -454,35 +457,60 @@ async def api_irrigation_advice(
             "Postponing irrigation will conserve water and prevent waterlogging root stress."
         )
         optimal_window = "Hold off; re-evaluate after rain passes"
-    elif needed:
-        decision = "Irrigation Required — Apply 3.5 L/m²"
+        run_time = "0 Minutes (Standby Mode)"
+        water_saved = "16,500 L"
+    elif effective_temp > 35 and effective_rain_prob < 50:
+        decision_type = "heatwave"
+        needed = True
+        decision = f"Heatwave Stress Override — Cooling Pulse ({int(effective_temp)}°C)"
         reasoning = (
-            f"Soil moisture ({moisture}%) has dropped below optimal threshold for {crop}. "
-            f"With temperature at {effective_temp}°C and low rain probability ({int(effective_rain_prob)}%) at {resolved_location}, "
-            "scheduled drip irrigation is recommended to prevent drought stress."
+            f"Extreme ambient temperature of <strong>{effective_temp}°C</strong> detected at {resolved_location}. "
+            f"Solar vaporisation rate is elevated at {evapo} mm/day. A light 15-minute drip pulse is advised to cool root beds and prevent flower drop."
         )
-        optimal_window = "Early Morning (05:30 AM – 08:00 AM)"
+        optimal_window = "Late Afternoon (04:30 PM – 06:00 PM)"
+        run_time = "15 Minutes (Canopy Cooling Pulse)"
+        water_saved = "4,200 L"
+    elif needed or moisture < 35:
+        decision_type = "needed"
+        needed = True
+        decision = "YES — Irrigation Recommended (Apply 3.5 L/m²)"
+        reasoning = (
+            f"Soil moisture (<strong>{moisture}%</strong>) has dropped below the critical threshold for {crop}. "
+            f"With low rain probability ({int(effective_rain_prob)}%) and temperature at {effective_temp}°C at {resolved_location}, "
+            "immediate scheduled drip irrigation is recommended to prevent drought stress."
+        )
+        optimal_window = "Tomorrow, 5:30 AM – 7:30 AM (Low Evaporation)"
+        run_time = "60 Minutes (Active Drip Cycle)"
+        water_saved = "0 L (Irrigation Active)"
     else:
-        decision = f"Soil Moisture Optimal ({moisture}%)"
+        decision_type = "optimal"
+        needed = False
+        decision = f"Soil Moisture Optimal ({moisture}%) — Standby"
         reasoning = (
-            f"Current soil moisture ({moisture}%) is well within the healthy turgor range for {crop} ({soil_type} soil). "
-            f"Local conditions at {resolved_location} are stable. No active irrigation needed at this moment."
+            f"Current root zone moisture (<strong>{moisture}%</strong>) is comfortably within the healthy turgor buffer for {crop} ({soil_type} soil). "
+            f"Local weather at {resolved_location} is stable with {int(effective_rain_prob)}% rain probability. Supplemental watering today is unnecessary."
         )
-        optimal_window = "Next scheduled check in 12 hours"
+        optimal_window = "Next scheduled check in 12–24 hours"
+        run_time = "0 Minutes (Standby Mode)"
+        water_saved = "12,000 L"
 
     return {
         "needed": needed,
         "decision": decision,
+        "decisionType": decision_type,
         "reasoning": reasoning,
         "metrics": {
             "soilMoisture": moisture,
             "rainForecast24h": f"{int(effective_rain_prob)}% ({'8-12 mm' if effective_rain_prob > 50 else '<2 mm'})",
             "temperature": effective_temp,
+            "evapotranspiration": f"{evapo} mm/d",
+            "waterSaved": water_saved,
             "crop": crop,
             "location": resolved_location,
         },
         "schedule": {
             "optimalWindow": optimal_window,
+            "runTime": run_time,
             "recommendedVolumePerSqm": 3.5 if needed else 0.0,
         },
     }
@@ -680,8 +708,10 @@ async def api_weather_advisory(
 # 5. Sustainability Score (/api/sustainability/score)
 # ─────────────────────────────────────────────────────────────────────────────
 class FrontendSustainabilityRequest(BaseModel):
-    water_used_liters_per_ha_week: Optional[float] = 22000.0
-    fertilizer_kg_per_hectare: Optional[float] = 30.0
+    water_used_liters: Optional[float] = 35000.0
+    water_used_liters_per_ha_week: Optional[float] = None
+    area_hectares: Optional[float] = 2.0
+    fertilizer_kg_per_hectare: Optional[float] = 45.0
     disease_detected: Optional[bool] = False
     irrigation_method: Optional[str] = "drip"
     pesticide_used: Optional[bool] = False
@@ -695,15 +725,24 @@ class FrontendSustainabilityRequest(BaseModel):
 )
 async def api_sustainability_score(req: Optional[FrontendSustainabilityRequest] = None):
     data = req or FrontendSustainabilityRequest()
+    
+    area = data.area_hectares if (data.area_hectares and data.area_hectares > 0) else 2.0
+    water_val = data.water_used_liters
+    if water_val is None:
+        if data.water_used_liters_per_ha_week is not None:
+            water_val = data.water_used_liters_per_ha_week * area
+        else:
+            water_val = 35000.0
+
     s_req = SustainabilityRequest(
         crop_type=data.crop or "Tomato",
-        area_hectares=2.5,
-        water_used_liters=data.water_used_liters_per_ha_week or 22000.0,
-        fertilizer_kg_per_hectare=data.fertilizer_kg_per_hectare or 30.0,
-        disease_detected=data.disease_detected or False,
+        area_hectares=area,
+        water_used_liters=max(0.0, float(water_val)),
+        fertilizer_kg_per_hectare=max(0.0, float(data.fertilizer_kg_per_hectare if data.fertilizer_kg_per_hectare is not None else 45.0)),
+        disease_detected=bool(data.disease_detected),
         irrigation_applied=True,
-        irrigation_method=data.irrigation_method or "drip",
-        pesticide_used=data.pesticide_used or False,
+        irrigation_method=str(data.irrigation_method or "drip").lower().strip(),
+        pesticide_used=bool(data.pesticide_used),
     )
 
     score_res = compute_sustainability(s_req)
@@ -715,60 +754,144 @@ async def api_sustainability_score(req: Optional[FrontendSustainabilityRequest] 
     m_score = score_res.get("irrigation_method_score", 85.0)
     d_score = score_res.get("disease_management_score", 90.0)
 
+    # Dynamic pillar summaries & tier metrics based on scores
+    water_metric = f"{round(w_score, 1)}/100 • {'Tier 1 Efficiency' if w_score >= 85 else ('Moderate Efficiency' if w_score >= 60 else 'Excess Withdrawal')}"
+    water_summary = (
+        "Micro-drip deployment reduces runoff and evaporation losses significantly."
+        if w_score >= 85 else
+        "Water withdrawal is moderate. Early morning scheduling can improve retention."
+        if w_score >= 60 else
+        "Water consumption is significantly above FAO regional reference volume for this crop."
+    )
+
+    fert_metric = f"{round(f_score, 1)}/100 • {'Optimal Dosage' if f_score >= 90 else ('Moderate Usage' if f_score >= 60 else 'Excess Chemical Risk')}"
+    fert_summary = (
+        "Balanced nutrient application within ideal range (20–40 kg/ha)."
+        if f_score >= 90 else
+        "Slightly elevated fertilizer dosage increases nitrate leaching vulnerability."
+        if f_score >= 60 else
+        "High fertilizer application causes soil acidification and significant runoff loss."
+    )
+
+    irrig_metric = f"{round(m_score, 1)}/100 • {s_req.irrigation_method.capitalize()} Method"
+    irrig_summary = (
+        "High-efficiency drip lines deliver water directly to the crop root zone."
+        if m_score >= 90 else
+        "Sprinklers provide uniform coverage with moderate aerial evaporative loss."
+        if m_score >= 70 else
+        "Furrow distribution leads to moderate seepage and non-uniform infiltration."
+        if m_score >= 45 else
+        "Flood irrigation causes substantial surface evaporation, nutrient runoff, and waterlogging."
+    )
+
+    disease_metric = f"{round(d_score, 1)}/100 • {'Healthy Canopy' if d_score >= 90 else 'Infection Stress'}"
+    disease_summary = (
+        "No active pathogen detected. Robust plant immunity and canopy health maintained."
+        if d_score >= 90 else
+        "Active pathogen outbreak detected, causing physiological stress and necessitating treatment."
+    )
+
     breakdown = [
         {
             "pillar": "Water Efficiency",
             "score": round(w_score, 1),
             "color": "#0288D1",
-            "summary": "Micro-drip deployment reduces runoff and evaporation losses significantly.",
-            "metric": f"{round(w_score, 1)}/100 • Tier 1 Efficiency",
+            "summary": water_summary,
+            "metric": water_metric,
         },
         {
             "pillar": "Chemical Reduction",
             "score": round(f_score, 1),
             "color": "#E65100",
-            "summary": "Balanced bio-stimulants mitigate nitrate leaching risk into groundwater.",
-            "metric": f"{round(f_score, 1)}/100 • Moderate Usage",
+            "summary": fert_summary,
+            "metric": fert_metric,
         },
         {
             "pillar": "Irrigation & Energy",
             "score": round(m_score, 1),
             "color": "#2E7D32",
-            "summary": "Efficient solar pumping displaces ~1.2 tonnes of CO2 equivalent emissions per season.",
-            "metric": f"{round(m_score, 1)}/100 • Low Carbon Footprint",
+            "summary": irrig_summary,
+            "metric": irrig_metric,
         },
         {
             "pillar": "Foliar & Plant Health",
             "score": round(d_score, 1),
             "color": "#7B1FA2",
-            "summary": "Active residue mulching and vermicompost retention rebuild organic carbon pools.",
-            "metric": f"{round(d_score, 1)}/100 • Excellent Regeneration",
+            "summary": disease_summary,
+            "metric": disease_metric,
         },
     ]
 
-    suggestions = [
-        {
-            "impact": "High Impact",
-            "title": "Install Solar Drip Automation",
-            "description": "Pairing soil moisture sensor probes with automated solenoid valves cuts energy by 18% and water consumption by 22%.",
-        },
-        {
-            "impact": "Medium Impact",
-            "title": "Biochar & Vermicompost Top-Dressing",
-            "description": "Boost soil cation exchange capacity (CEC) to retain applied nutrients during heavy monsoon showers.",
-        },
-        {
-            "impact": "Best Practice",
-            "title": "Leguminous Cover Cropping",
-            "description": "Introduce cowpea or sunn-hemp between primary crop rows to fix 40 kg atmospheric N/ha naturally.",
-        },
-    ]
+    # Convert raw engine suggestions into categorized UI cards
+    raw_sug = score_res.get("improvement_suggestions", [])
+    suggestions = []
+    for s in raw_sug:
+        if "Water use efficiency" in s or ("irrigation" in s.lower() and "Current irrigation method" not in s):
+            suggestions.append({
+                "impact": "High Impact",
+                "title": "Irrigation Timing & Volume Optimization",
+                "description": s,
+            })
+        elif "Current irrigation method" in s:
+            suggestions.append({
+                "impact": "High Impact",
+                "title": "Upgrade Water Delivery Infrastructure",
+                "description": s,
+            })
+        elif "Fertilizer" in s:
+            suggestions.append({
+                "impact": "High Impact",
+                "title": "Nutrient Split-Dosing & Soil Testing",
+                "description": s,
+            })
+        elif "Disease" in s:
+            suggestions.append({
+                "impact": "Urgent Action",
+                "title": "Biosecurity & Targeted Disease Control",
+                "description": s,
+            })
+        elif "Pesticide" in s:
+            suggestions.append({
+                "impact": "Medium Impact",
+                "title": "Integrated Pest Management (IPM)",
+                "description": s,
+            })
+        else:
+            suggestions.append({
+                "impact": "Best Practice",
+                "title": "Eco-Farming Stewardship",
+                "description": s,
+            })
+
+    if not suggestions:
+        suggestions.append({
+            "impact": "Elite Practice",
+            "title": "Outstanding Sustainable Operations",
+            "description": "All monitored resource metrics are within optimal conservation limits. Keep up the disciplined stewardship!",
+        })
+
+    tier_label = (
+        "Tier 1: Eco-Certified Leader" if overall >= 90 else
+        "Tier 2: Progressive Conservationist" if overall >= 75 else
+        "Tier 3: Moderate Efficiency Farm" if overall >= 60 else
+        "Tier 4: High Resource Footprint"
+    )
 
     return {
         "overallScore": round(overall, 1),
         "grade": grade,
+        "tier": tier_label,
         "breakdown": breakdown,
         "suggestions": suggestions,
+        "metrics": {
+            "crop": s_req.crop_type,
+            "areaHectares": s_req.area_hectares,
+            "waterUsedLiters": s_req.water_used_liters,
+            "fertilizerKgPerHa": s_req.fertilizer_kg_per_hectare,
+            "irrigationMethod": s_req.irrigation_method,
+            "diseaseDetected": s_req.disease_detected,
+            "pesticideUsed": s_req.pesticide_used,
+        },
     }
 
 
