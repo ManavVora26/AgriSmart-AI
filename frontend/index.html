@@ -204,7 +204,7 @@
               </div>
               <div class="sample-chips-wrap" id="samplePresetsContainer">
                 <button type="button" class="sample-chip" data-preset="tomato_blight">
-                  <span>🍅 Tomato (Blight)</span>
+                  <span>🍅 Tomato (Leaf Specimen)</span>
                 </button>
                 <button type="button" class="sample-chip" data-preset="corn_healthy">
                   <span>🌽 Corn (Healthy)</span>
@@ -384,7 +384,6 @@
 
             </form>
           </div>
-
         </div>
 
         <!-- Right Column: Results & Actionable Advice -->
@@ -396,105 +395,201 @@
             <div class="spinner-text">Analyzing foliar symptoms & farm telemetry...</div>
           </div>
 
-          <!-- Result Header Card -->
-          <div class="result-header-card" id="resultHeaderCard">
-            <div class="result-header-top">
-              <div>
-                <span class="result-status-badge diseased" id="resStatusBadge">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16" aria-hidden="true">
-                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                  <span id="resStatusText">Pathogen Detected</span>
-                </span>
-                <h3 class="result-disease-name" id="resDiseaseName">Early Blight (Alternaria solani)</h3>
-                <div class="result-scientific-name" id="resScientificName">Alternaria solani • Foliar Fungal Complex</div>
+          <!-- Normal Valid Diagnostic Result Container -->
+          <div id="diseaseResultDetails">
+            <!-- Result Header Card -->
+            <div class="result-header-card" id="resultHeaderCard">
+              <div class="result-header-top">
+                <div>
+                  <span class="result-status-badge diseased" id="resStatusBadge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16" aria-hidden="true">
+                      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span id="resStatusText">Pathogen Detected</span>
+                  </span>
+                  <h3 class="result-disease-name" id="resDiseaseName">Early Blight (Alternaria solani)</h3>
+                  <div class="result-scientific-name" id="resScientificName">Alternaria solani • Foliar Fungal Complex</div>
+                </div>
+                <span class="severity-tag" id="resSeverityTag">Moderate to High Alert</span>
               </div>
-              <span class="severity-tag" id="resSeverityTag">Moderate to High Alert</span>
+
+              <!-- Confidence Bar -->
+              <div class="confidence-box">
+                <div class="confidence-label-row">
+                  <span>Model Confidence</span>
+                  <span class="confidence-val" id="resConfidenceVal">94.8%</span>
+                </div>
+                <div class="confidence-track">
+                  <div class="confidence-fill" id="resConfidenceBar" style="width: 94.8%;"></div>
+                </div>
+              </div>
+
+              <!-- Real Model Badge & Differential Diagnosis -->
+              <div id="resTop3Container" style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--color-border); font-size: 0.82rem; display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                  <span style="font-weight: 600; color: var(--color-text);">🔬 Ranked Pathology Differentials:</span>
+                  <span id="resModelBadge" style="background: rgba(46,125,50,0.12); color: var(--color-primary-dark); padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem;">⚡ Real ML Model (38 Classes)</span>
+                </div>
+                <div id="resTop3List" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+              </div>
+
+              <p id="resSummaryText">Fungal foliar disease characterized by dark brown concentric lesions ("bullseye pattern") starting on the oldest lower foliage. Elevated humidity and 27°C temperature have accelerated spore germination.</p>
             </div>
 
-            <!-- Confidence Bar -->
-            <div class="confidence-box">
-              <div class="confidence-label-row">
-                <span>Model Confidence</span>
-                <span class="confidence-val" id="resConfidenceVal">94.8%</span>
+            <!-- Symptoms Observed -->
+            <div class="advisory-block">
+              <h4 class="advisory-block-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                  <path d="M2 12h5l3 5 4-11 3 6h5"/>
+                </svg>
+                <span>Pathological Foliar Symptoms</span>
+              </h4>
+              <ul class="advisory-list" id="resSymptomsList">
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  <span>Concentric brown rings encircled by a chlorotic yellow halo on lower leaves</span>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  <span>Basal leaf yellowing with progressive upward defoliation</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Immediate Actionable Precautions & Treatment -->
+            <div class="advisory-block">
+              <h4 class="advisory-block-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span>Recommended Farm Treatment</span>
+              </h4>
+              <ul class="advisory-list" id="resPrecautionsList">
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                  <span id="resOrganicAdvice"><strong>Organic Remedy:</strong> Spray cold-pressed Neem Seed Kernel Extract (5%) or Copper Oxychloride @ 2.5g/L early in the morning.</span>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                  <span id="resCulturalAdvice"><strong>Cultural Practice:</strong> Prune infected bottom foliage up to 30cm high. Mulch with straw to arrest fungal splashback.</span>
+                </li>
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                  <span id="resChemicalAdvice"><strong>Chemical Option (If severe):</strong> Apply Azoxystrobin 23% SC @ 1 ml/L or Chlorothalonil 75% WP @ 2 g/L.</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary" id="askAssistantAboutDiseaseBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>Ask Assistant about this disease</span>
+              </button>
+              <button type="button" class="btn-secondary" id="checkIrrigationFromDiseaseBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                  <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+                </svg>
+                <span>Check Irrigation Impact</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Disease Validation Warning Card (Shown when non-plant or low-quality image is uploaded) -->
+          <div class="disease-validation-card" id="diseaseValidationCard" style="display: none;" role="alert" aria-live="polite">
+            <div class="validation-card-header">
+              <div class="validation-icon-circle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="30" height="30" aria-hidden="true">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
               </div>
-              <div class="confidence-track">
-                <div class="confidence-fill" id="resConfidenceBar" style="width: 94.8%;"></div>
+              <div class="validation-title-wrap">
+                <div class="validation-badge">⚠️ AI Guardrail • Foliage Verification Failed</div>
+                <h3 class="validation-title" id="validationTitle">No Crop Leaf Detected</h3>
+                <p class="validation-subtitle" id="validationSubtitle">The uploaded image could not be confirmed as agricultural foliage. Diagnostic analysis was paused to prevent false treatments.</p>
               </div>
             </div>
 
-            <!-- Real Model Badge & Differential Diagnosis -->
-            <div id="resTop3Container" style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--color-border); font-size: 0.82rem; display: none;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
-                <span style="font-weight: 600; color: var(--color-text);">🔬 Ranked Pathology Differentials:</span>
-                <span id="resModelBadge" style="background: rgba(46,125,50,0.12); color: var(--color-primary-dark); padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem;">⚡ Real ML Model (38 Classes)</span>
+            <!-- Telemetry Metrics Bar -->
+            <div class="validation-metric-bar">
+              <div class="metric-pill">
+                <span class="metric-pill-label">Detected Foliage Index:</span>
+                <strong class="metric-pill-val" id="validationFoliageRatio">0.0%</strong>
+                <span class="metric-pill-req">(Min. 10.0% required)</span>
               </div>
-              <div id="resTop3List" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+              <div class="metric-pill">
+                <span class="metric-pill-label">Guardrail Trigger:</span>
+                <strong class="metric-pill-val rejection" id="validationReasonText">Non-Plant / Out-of-Domain</strong>
+              </div>
             </div>
 
-            <p id="resSummaryText">Fungal foliar disease characterized by dark brown concentric lesions ("bullseye pattern") starting on the oldest lower foliage. Elevated humidity and 27°C temperature have accelerated spore germination.</p>
-          </div>
+            <!-- Rejection Reason Details -->
+            <div class="validation-reason-box">
+              <div class="reason-box-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <span>Diagnostic Notice for Farmer:</span>
+              </div>
+              <p class="reason-box-desc" id="validationDetailMessage">
+                The image does not exhibit organic leaf pigments (chlorophyll greens, chlorotic yellows, or necrotic foliar browns).
+              </p>
+            </div>
 
-          <!-- Symptoms Observed -->
-          <div class="advisory-block">
-            <h4 class="advisory-block-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
-                <path d="M2 12h5l3 5 4-11 3 6h5"/>
-              </svg>
-              <span>Pathological Foliar Symptoms</span>
-            </h4>
-            <ul class="advisory-list" id="resSymptomsList">
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span>Concentric brown rings encircled by a chlorotic yellow halo on lower leaves</span>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span>Basal leaf yellowing with progressive upward defoliation</span>
-              </li>
-            </ul>
-          </div>
+            <!-- Helpful Photography Guide for Farmers -->
+            <div class="validation-tips-box">
+              <div class="tips-box-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span>How to Capture an Image the AI Can Accurately Diagnose:</span>
+              </div>
+              <ul class="validation-tips-list" id="validationTipsList">
+                <li>
+                  <span class="tip-icon">🌿</span>
+                  <div><strong>Close-Up Shot:</strong> Position the camera 15–25 cm away from the affected leaf so it fills at least 60% of the frame.</div>
+                </li>
+                <li>
+                  <span class="tip-icon">☀️</span>
+                  <div><strong>Natural Daylight:</strong> Photograph in even, bright daylight. Avoid flash reflections, dark shadows, or tinted bulbs.</div>
+                </li>
+                <li>
+                  <span class="tip-icon">🎯</span>
+                  <div><strong>Focus on Lesions:</strong> Tap your camera screen directly on the spots, mildew, or wilting margins.</div>
+                </li>
+                <li>
+                  <span class="tip-icon">🌾</span>
+                  <div><strong>Supported Crops:</strong> Tomato, Potato, Corn, Apple, Grape, Pepper, Strawberry, Peach, and Orange.</div>
+                </li>
+              </ul>
+            </div>
 
-          <!-- Immediate Actionable Precautions & Treatment -->
-          <div class="advisory-block">
-            <h4 class="advisory-block-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              <span>Recommended Farm Treatment</span>
-            </h4>
-            <ul class="advisory-list" id="resPrecautionsList">
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                <span id="resOrganicAdvice"><strong>Organic Remedy:</strong> Spray cold-pressed Neem Seed Kernel Extract (5%) or Copper Oxychloride @ 2.5g/L early in the morning.</span>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                <span id="resCulturalAdvice"><strong>Cultural Practice:</strong> Prune infected bottom foliage up to 30cm high. Mulch with straw to arrest fungal splashback.</span>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                <span id="resChemicalAdvice"><strong>Chemical Option (If severe):</strong> Apply Azoxystrobin 23% SC @ 1 ml/L or Chlorothalonil 75% WP @ 2 g/L.</span>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Quick Action Buttons -->
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <button type="button" class="btn-secondary" id="askAssistantAboutDiseaseBtn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              <span>Ask Assistant about this disease</span>
-            </button>
-            <button type="button" class="btn-secondary" id="checkIrrigationFromDiseaseBtn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
-                <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
-              </svg>
-              <span>Check Irrigation Impact</span>
-            </button>
+            <!-- Action Buttons -->
+            <div class="validation-actions">
+              <button type="button" class="btn-primary" id="validationRetakeBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span>Upload Another Photo</span>
+              </button>
+              <button type="button" class="btn-secondary" id="validationTrySampleBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+                <span>Try a Verified Leaf Sample</span>
+              </button>
+            </div>
           </div>
 
         </div>

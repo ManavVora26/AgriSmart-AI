@@ -60,7 +60,26 @@ async def api_predict_disease(
         filename = upload.filename or "uploaded_leaf.jpg"
 
     # Call underlying disease service
-    result = predict_disease(image_bytes=image_bytes)
+    result = predict_disease(image_bytes=image_bytes, filename=filename)
+
+    # Guardrail Check: Non-plant or ambiguous image rejected
+    if result.get("status") == "invalid_image":
+        return {
+            "status": "invalid_image",
+            "title": "No Crop Leaf Detected" if result.get("reason") != "low_confidence" else "Low Diagnostic Confidence",
+            "reason": result.get("reason", "unknown"),
+            "message": result.get("message", "The uploaded image does not appear to contain recognizable crop foliage."),
+            "suggestions": result.get("suggestions", [
+                "Take a close-up photo of a single crop leaf.",
+                "Ensure good natural daylight without glare or dark shadows.",
+                "Focus camera directly on the affected leaf surface.",
+                "Verify your crop is one of our supported species."
+            ]),
+            "vegetation_ratio": result.get("vegetation_ratio", 0.0),
+            "confidence": round(result.get("confidence", 0.0) * 100, 1),
+            "crop": "Unrecognized",
+            "disease": "Validation Guardrail Triggered",
+        }
 
     is_healthy = result.get("is_healthy", False)
     detected_crop = result.get("crop") or crop_type

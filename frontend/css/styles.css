@@ -992,6 +992,220 @@ button, input, select, textarea {
   margin-top: 2px;
 }
 
+/* Disease Validation Warning Card (Guardrail rejection UI) */
+.disease-validation-card {
+  background: linear-gradient(145deg, #FFFDF7 0%, #FFF8E7 100%);
+  border: 1.5px solid #FFD54F;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(230, 81, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  animation: fadeInDown 0.35s ease-out forwards;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.validation-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.validation-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #FFF3E0;
+  border: 2px solid #FFE0B2;
+  color: #E65100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.15);
+}
+
+.validation-title-wrap {
+  flex: 1;
+}
+
+.validation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: #FFE082;
+  color: #795548;
+  margin-bottom: 0.35rem;
+}
+
+.validation-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #BF360C;
+  margin-bottom: 0.25rem;
+}
+
+.validation-subtitle {
+  font-size: 0.92rem;
+  color: #5D4037;
+  line-height: 1.45;
+}
+
+.validation-metric-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.metric-pill {
+  background: #FFFFFF;
+  border: 1px solid #FFE082;
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--color-text-main);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.metric-pill-label {
+  color: var(--color-text-light);
+  font-weight: 500;
+}
+
+.metric-pill-val {
+  font-weight: 800;
+  color: var(--color-primary-dark);
+}
+
+.metric-pill-val.rejection {
+  color: #D84315;
+}
+
+.metric-pill-req {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+}
+
+.validation-reason-box {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px dashed #FFCA28;
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+}
+
+.reason-box-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #E65100;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.3rem;
+}
+
+.reason-box-desc {
+  font-size: 0.88rem;
+  color: #4E342E;
+  line-height: 1.45;
+}
+
+.validation-tips-box {
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.15rem;
+}
+
+.tips-box-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.tips-box-title svg {
+  color: var(--color-primary);
+}
+
+.validation-tips-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+}
+
+.validation-tips-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.validation-tips-list li .tip-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.validation-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .disease-validation-card {
+    padding: 1.1rem;
+    gap: 1rem;
+  }
+  .validation-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .validation-tips-list {
+    grid-template-columns: 1fr;
+  }
+  .validation-actions {
+    flex-direction: column;
+  }
+  .validation-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ---------------- SECTION 2: Crop Recommendation ---------------- */
 .crop-location-control-card {
   background: linear-gradient(135deg, #FFFFFF 0%, #F9FBF7 100%);

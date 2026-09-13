@@ -558,7 +558,11 @@ document.addEventListener('DOMContentLoaded', () => {
         farmContext
       );
       renderDiseaseResult(result);
-      showToast(`Analysis complete: ${result.disease}`, result.status === 'healthy' ? 'success' : 'warning');
+      if (result.status === 'invalid_image') {
+        showToast(result.title || 'Image rejected: No plant leaf detected', 'warning');
+      } else {
+        showToast(`Analysis complete: ${result.disease}`, result.status === 'healthy' ? 'success' : 'warning');
+      }
     } catch (err) {
       console.error('Disease prediction error:', err);
       showToast('Error during disease diagnosis: ' + err.message, 'warning');
@@ -569,6 +573,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderDiseaseResult(result) {
+    const diseaseResultDetails = document.getElementById('diseaseResultDetails');
+    const diseaseValidationCard = document.getElementById('diseaseValidationCard');
+
+    // 1. Guardrail Check: Rejected / Non-Plant Image
+    if (result.status === 'invalid_image') {
+      if (diseaseResultDetails) diseaseResultDetails.style.display = 'none';
+      if (diseaseValidationCard) {
+        diseaseValidationCard.style.display = 'flex';
+
+        const valTitle = document.getElementById('validationTitle');
+        const valSubtitle = document.getElementById('validationSubtitle');
+        const valFoliage = document.getElementById('validationFoliageRatio');
+        const valReason = document.getElementById('validationReasonText');
+        const valMessage = document.getElementById('validationDetailMessage');
+        const valTipsList = document.getElementById('validationTipsList');
+
+        if (valTitle) valTitle.textContent = result.title || 'No Crop Leaf Detected';
+        if (valSubtitle) {
+          valSubtitle.textContent = result.message || 'The uploaded image could not be verified as agricultural crop foliage.';
+        }
+        if (valFoliage) {
+          const ratio = (result.vegetation_ratio !== undefined)
+            ? (result.vegetation_ratio <= 1.0 ? (result.vegetation_ratio * 100).toFixed(1) : result.vegetation_ratio.toFixed(1))
+            : '0.0';
+          valFoliage.textContent = `${ratio}%`;
+        }
+        if (valReason) {
+          const reasons = {
+            'no_plant_detected': 'Non-Plant / Out-of-Domain',
+            'monotone_or_blank': 'Monotone / Blank Frame',
+            'too_small': 'Resolution Too Low (< 80x80)',
+            'low_confidence': 'Ambiguous Subject (< 40% conf)',
+            'empty_file': 'Corrupt / Empty Image',
+          };
+          valReason.textContent = reasons[result.reason] || 'Guardrail Triggered';
+        }
+        if (valMessage) {
+          valMessage.textContent = result.message || 'The image does not contain recognizable plant foliage or foliar lesions.';
+        }
+        if (valTipsList && result.suggestions && result.suggestions.length > 0) {
+          valTipsList.innerHTML = result.suggestions.map((sug, i) => {
+            const icons = ['🌿', '☀️', '🎯', '🌾'];
+            return `<li><span class="tip-icon">${icons[i % icons.length]}</span><div><strong>Tip ${i+1}:</strong> ${sug}</div></li>`;
+          }).join('');
+        }
+      }
+      return;
+    }
+
+    // 2. Verified Leaf: Show Diagnosis Details
+    if (diseaseValidationCard) diseaseValidationCard.style.display = 'none';
+    if (diseaseResultDetails) diseaseResultDetails.style.display = 'block';
+
     const statusBadge = document.getElementById('resStatusBadge');
     const statusText = document.getElementById('resStatusText');
     const diseaseName = document.getElementById('resDiseaseName');
@@ -658,6 +715,27 @@ document.addEventListener('DOMContentLoaded', () => {
         top3Container.style.display = 'none';
       }
     }
+  }
+
+  // Action buttons on the Validation Warning Card
+  const validationRetakeBtn = document.getElementById('validationRetakeBtn');
+  if (validationRetakeBtn) {
+    validationRetakeBtn.addEventListener('click', () => {
+      const fileInput = document.getElementById('leafFileInput');
+      if (fileInput) fileInput.click();
+    });
+  }
+
+  const validationTrySampleBtn = document.getElementById('validationTrySampleBtn');
+  if (validationTrySampleBtn) {
+    validationTrySampleBtn.addEventListener('click', () => {
+      const tomatoChip = document.querySelector('.sample-chip[data-preset="tomato_blight"]');
+      if (tomatoChip) {
+        tomatoChip.click();
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        if (analyzeBtn) setTimeout(() => analyzeBtn.click(), 120);
+      }
+    });
   }
 
   // Cross-navigation buttons from Disease Results
