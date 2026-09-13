@@ -72,20 +72,32 @@ const SAMPLE_LEAF_PRESETS = {
  */
 async function validateClientLeafImage(imageFile) {
   if (imageFile?.isPreset || imageFile?.presetKey) {
-    return { isValid: true, vegetationRatio: 0.95 };
+    return { isValid: true, vegetationRatio: 0.95, retry_message: '' };
   }
   if (!imageFile) {
-    return { isValid: false, reason: 'empty_file', message: 'No image file received.' };
+    return {
+      isValid: false,
+      reason: 'empty_file',
+      message: 'No image file received.',
+      retry_message: 'Please retry by selecting a valid crop leaf photo.',
+      suggestions: ['Please upload a valid JPEG, PNG, or WebP photo.']
+    };
   }
 
   const fname = (imageFile.name || '').toLowerCase();
-  const nonPlantKeywords = ['car', 'cat', 'dog', 'pet', 'selfie', 'person', 'phone', 'laptop', 'document', 'invoice', 'receipt', 'screenshot', 'blue', 'white', 'monotone', 'blank', 'face', 'test_blue', 'test_white'];
+  const nonPlantKeywords = [
+    'car', 'cat', 'dog', 'pet', 'animal', 'selfie', 'person', 'human', 'face',
+    'phone', 'laptop', 'computer', 'screen', 'screenshot', 'document', 'invoice',
+    'receipt', 'pdf', 'blue', 'white', 'black', 'monotone', 'blank', 'test_blue',
+    'test_white', 'furniture', 'room', 'building', 'shoe', 'food', 'snack', 'drink'
+  ];
   for (const kw of nonPlantKeywords) {
-    if (fname.includes(kw)) {
+    if (fname.includes(kw) && !fname.includes('leaf') && !fname.includes('plant') && !fname.includes('blight') && !fname.includes('rust')) {
       return {
         isValid: false,
         reason: 'no_plant_detected',
         message: `No crop leaf detected in "${imageFile.name}". The subject appears to be a non-plant object, document, or vehicle.`,
+        retry_message: 'Please retry by capturing or selecting a close-up photo of a crop leaf.',
         vegetationRatio: 0.0,
         suggestions: [
           'Take a close-up photo of a single crop leaf.',
@@ -97,7 +109,7 @@ async function validateClientLeafImage(imageFile) {
     }
   }
 
-  // If HTML Image/Blob, analyze pixel HSV spectrum via offscreen canvas
+  // If HTML Image/Blob, analyze pixel HSV spectrum and texture variation via canvas
   if (imageFile instanceof Blob || imageFile instanceof File) {
     try {
       const bitmap = await createImageBitmap(imageFile);
@@ -111,9 +123,12 @@ async function validateClientLeafImage(imageFile) {
 
       let plantPixels = 0;
       let totalPixels = 64 * 64;
+      let totalR = 0, totalG = 0, totalB = 0;
 
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
+        totalR += r; totalG += g; totalB += b;
+
         const max = Math.max(r, g, b), min = Math.min(r, g, b);
         const d = max - min;
         const s = max === 0 ? 0 : d / max;
@@ -125,38 +140,57 @@ async function validateClientLeafImage(imageFile) {
           else h = ((r - g) / d + 4) * 60;
         }
 
-        // Green foliage: 40° - 160°, s > 0.15, v > 0.15
-        const isGreen = (h >= 40 && h <= 160 && s >= 0.15 && v >= 0.15);
-        // Chlorotic yellow: 20° - 40°, s >= 0.2, v >= 0.2
-        const isYellow = (h >= 20 && h < 40 && s >= 0.2 && v >= 0.2);
-        // Necrotic brown: 10° - 30°, s >= 0.25, 0.1 <= v <= 0.75
+        // Green foliage: 38° - 165°, s > 0.15, v > 0.15
+        const isGreen = (h >= 38 && h <= 165 && s >= 0.15 && v >= 0.15);
+        // Chlorotic yellow: 20° - 38°, s >= 0.2, v >= 0.2
+        const isYellow = (h >= 20 && h < 38 && s >= 0.2 && v >= 0.2);
+        // Necrotic foliar brown: 10° - 30°, s >= 0.25, 0.1 <= v <= 0.75
         const isBrown = (h >= 10 && h < 30 && s >= 0.25 && v >= 0.1 && v <= 0.75);
 
         if (isGreen || isYellow || isBrown) plantPixels++;
       }
 
+      // Check standard deviation / blank frame
+      const avgR = totalR / totalPixels;
+      let varianceSum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        varianceSum += Math.pow(data[i] - avgR, 2);
+      }
+      const stdDev = Math.sqrt(varianceSum / totalPixels);
+      if (stdDev < 10) {
+        return {
+          isValid: false,
+          reason: 'monotone_or_blank',
+          message: 'The uploaded image appears solid-colored, blank, or lacks leaf texture.',
+          retry_message: 'Please ensure camera lens is unobstructed and retry capturing the crop leaf.',
+          vegetationRatio: 0.0,
+          suggestions: ['Take a clear close-up photograph of a plant leaf.']
+        };
+      }
+
       const ratio = plantPixels / totalPixels;
-      if (ratio < 0.10) {
+      if (ratio < 0.15) {
         return {
           isValid: false,
           reason: 'no_plant_detected',
-          message: `No crop leaf detected (plant foliage index: ${(ratio * 100).toFixed(1)}%). The image does not exhibit organic leaf pigments or foliar lesions.`,
+          message: `No crop leaf detected (foliage index: ${(ratio * 100).toFixed(1)}%). The image does not exhibit organic leaf pigments or foliar lesions.`,
+          retry_message: 'Please retry by capturing or uploading a close-up photo of an affected plant leaf in bright natural light.',
           vegetationRatio: ratio,
           suggestions: [
             'Take a close-up photo of a single crop leaf.',
-            'Ensure bright, even daylight without glare.',
+            'Ensure bright, even daylight without glare or heavy shadows.',
             'Focus camera directly on the leaf surface.',
             'Ensure the subject is a supported crop species.'
           ]
         };
       }
-      return { isValid: true, vegetationRatio: ratio };
+      return { isValid: true, vegetationRatio: ratio, retry_message: '' };
     } catch (e) {
       console.warn('Canvas pixel validation bypassed:', e);
     }
   }
 
-  return { isValid: true, vegetationRatio: 0.88 };
+  return { isValid: true, vegetationRatio: 0.88, retry_message: '' };
 }
 
 /**
@@ -173,6 +207,7 @@ async function mockPredictDisease(imageFile, farmContext = {}) {
       title: 'No Crop Leaf Detected',
       reason: val.reason || 'no_plant_detected',
       message: val.message || 'The image does not contain recognizable plant foliage.',
+      retry_message: val.retry_message || 'Please retry by uploading a close-up photo of a crop leaf.',
       suggestions: val.suggestions || [
         'Take a close-up photo of a single crop leaf.',
         'Ensure good natural daylight without glare or dark shadows.',
@@ -983,6 +1018,7 @@ async function mockGenerateAgentEvent() {
 // Export functions to global scope for clean browser usage
 window.AgriSmartMock = {
   SAMPLE_LEAF_PRESETS,
+  validateClientLeafImage,
   mockPredictDisease,
   mockRecommendCrop,
   mockGetIrrigationAdvice,

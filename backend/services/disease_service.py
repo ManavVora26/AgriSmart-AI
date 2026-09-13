@@ -188,23 +188,116 @@ def _real_predict(image_bytes: bytes) -> dict:
     }
 
 
-def validate_leaf_image(image_bytes: bytes) -> dict:
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+
+def _check_gemini_vision_leaf(image_bytes: bytes) -> Optional[dict]:
+    """
+    Uses Google Gemini Vision to accurately check if the image is a plant leaf
+    or an out-of-domain object (car, human, animal, document, room, etc.).
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    try:
+        from google import genai
+        from google.genai import types
+        import json
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+
+        # Detect mime type
+        mime_type = "image/jpeg"
+        if image_bytes.startswith(b"\x89PNG"):
+            mime_type = "image/png"
+        elif image_bytes.startswith(b"RIFF") and b"WEBP" in image_bytes[:16]:
+            mime_type = "image/webp"
+
+        prompt = (
+            "Analyze this image carefully for an agricultural plant pathology system.\n"
+            "Question: Does this image depict a real plant leaf, crop foliage, or agricultural plant subject "
+            "suitable for leaf disease identification?\n"
+            "If it depicts a non-plant object (e.g. human face, selfie, animal, vehicle, car, indoor room, "
+            "document, phone, food, drawing, furniture, random item, solid color), mark is_leaf as false.\n\n"
+            "Respond strictly in valid JSON format without markdown code fences:\n"
+            "{\n"
+            '  "is_leaf": true,\n'
+            '  "subject": "brief 2-4 word description of what image shows",\n'
+            '  "reason": "short 1-sentence reason why it is or is not an agricultural crop leaf",\n'
+            '  "retry_advice": "clear instruction for the farmer on how to retry with a real crop leaf photo"\n'
+            "}"
+        )
+
+        models_to_try = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+        for m in models_to_try:
+            try:
+                resp = client.models.generate_content(
+                    model=m,
+                    contents=[
+                        types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                        prompt
+                    ]
+                )
+                if resp and resp.text:
+                    text = resp.text.strip()
+                    if text.startswith("```"):
+                        text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                    data = json.loads(text)
+                    return data
+            except Exception as e_candidate:
+                logger.debug(f"Gemini leaf check with model {m} failed: {e_candidate}")
+                continue
+
+    except Exception as e:
+        logger.warning(f"Gemini leaf validation error: {e}")
+
+    return None
+
+
+def validate_leaf_image(image_bytes: bytes, filename: str = "") -> dict:
     """
     Validates that the uploaded image contains plant foliage/leaves and meets minimum quality thresholds.
     Rejects:
       1. Empty or corrupted files
       2. Images smaller than 80x80 pixels
       3. Solid/monotone images (no texture variation)
-      4. Images with < 10% organic plant pigmentation (greens, chlorotic yellows, necrotic browns)
+      4. Known non-plant keywords in filename
+      5. Gemini Vision AI validation (flags non-plant subjects: cars, faces, pets, etc.)
+      6. Images with < 15% organic plant pigmentation (greens, chlorotic yellows, necrotic browns)
     """
     if not image_bytes or len(image_bytes) < 100:
         return {
             "is_valid": False,
             "reason": "empty_file",
             "message": "Empty or corrupted image file received.",
+            "retry_message": "Please retry by uploading a valid JPEG, PNG, or WebP photo of a crop leaf.",
             "suggestions": ["Please upload a valid JPEG, PNG, or WebP photo."],
             "vegetation_ratio": 0.0,
         }
+
+    # Filename keyword check for immediate rejection of obvious non-plant test files
+    fn_lower = (filename or "").lower()
+    non_plant_keywords = [
+        "car", "cat", "dog", "pet", "selfie", "person", "human", "face",
+        "phone", "laptop", "document", "invoice", "receipt", "screenshot",
+        "blue", "white", "monotone", "blank", "test_blue", "test_white", "building", "vehicle"
+    ]
+    for kw in non_plant_keywords:
+        if kw in fn_lower and not ("leaf" in fn_lower or "blight" in fn_lower or "spot" in fn_lower or "rust" in fn_lower):
+            return {
+                "is_valid": False,
+                "reason": "no_plant_detected",
+                "detected_subject": f"Non-plant file ({filename})",
+                "message": f"No crop leaf detected in \"{filename}\". The subject appears to be a non-plant object or document.",
+                "retry_message": "Please retry by capturing or uploading a close-up photo of an affected plant leaf.",
+                "suggestions": [
+                    "Take a close-up photo of a single crop leaf.",
+                    "Ensure good natural daylight without glare or dark shadows.",
+                    "Focus camera directly on the affected leaf surface.",
+                    "Ensure the subject is a supported agricultural plant (Tomato, Potato, Corn, Apple, etc.)."
+                ],
+                "vegetation_ratio": 0.0,
+            }
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
@@ -216,6 +309,7 @@ def validate_leaf_image(image_bytes: bytes) -> dict:
                 "is_valid": False,
                 "reason": "too_small",
                 "message": f"Image resolution is too low ({width}x{height} px). Minimum required is 80x80 px.",
+                "retry_message": "Please retry by uploading a higher-resolution close-up photo of the leaf.",
                 "suggestions": ["Please upload a higher-resolution close-up photo of the leaf."],
                 "vegetation_ratio": 0.0,
             }
@@ -231,6 +325,7 @@ def validate_leaf_image(image_bytes: bytes) -> dict:
                 "is_valid": False,
                 "reason": "monotone_or_blank",
                 "message": "The uploaded image appears blank, solid-colored, or lacks discernible leaf texture.",
+                "retry_message": "Please ensure the camera lens is unobstructed and captures clear leaf surface, then retry.",
                 "suggestions": ["Ensure camera lens is unobstructed and captures clear leaf surface."],
                 "vegetation_ratio": 0.0,
             }
@@ -249,8 +344,30 @@ def validate_leaf_image(image_bytes: bytes) -> dict:
         plant_mask = green_mask | yellow_mask | brown_mask
         vegetation_ratio = float(np.sum(plant_mask)) / float(plant_mask.size)
 
-        # Plant threshold: at least 10% of pixels must match organic leaf spectrum
-        if vegetation_ratio < 0.10:
+        # 4. Gemini Vision Guardrail (if API key available)
+        gemini_check = _check_gemini_vision_leaf(image_bytes)
+        if gemini_check is not None:
+            if not gemini_check.get("is_leaf", False):
+                subj = gemini_check.get("subject", "non-plant subject")
+                reason = gemini_check.get("reason", "The image does not contain agricultural crop foliage.")
+                retry_adv = gemini_check.get("retry_advice", "Please retry by uploading a close-up photo of a crop leaf.")
+                return {
+                    "is_valid": False,
+                    "reason": "no_plant_detected",
+                    "detected_subject": subj,
+                    "message": f"Non-leaf image detected ({subj}). {reason}",
+                    "retry_message": retry_adv,
+                    "suggestions": [
+                        "Take a close-up photo of a single crop leaf.",
+                        "Ensure good natural daylight (avoid dark shadows or glare).",
+                        "Focus camera directly on the affected leaf surface.",
+                        "Ensure the subject is a supported agricultural plant (Tomato, Potato, Corn, Apple, etc.)."
+                    ],
+                    "vegetation_ratio": round(vegetation_ratio, 3),
+                }
+
+        # 5. Plant threshold check: at least 15% of pixels must match organic leaf spectrum
+        if vegetation_ratio < 0.15:
             return {
                 "is_valid": False,
                 "reason": "no_plant_detected",
@@ -258,6 +375,7 @@ def validate_leaf_image(image_bytes: bytes) -> dict:
                     f"No crop leaf detected (plant foliage index: {round(vegetation_ratio * 100, 1)}%). "
                     "The image does not contain recognizable plant leaves, chlorophyll, or foliar lesions."
                 ),
+                "retry_message": "Please retry by uploading a close-up photo of a single crop leaf in bright, natural light.",
                 "suggestions": [
                     "Take a close-up photo of a single crop leaf.",
                     "Ensure good natural daylight (avoid dark shadows or glare).",
@@ -271,6 +389,7 @@ def validate_leaf_image(image_bytes: bytes) -> dict:
             "is_valid": True,
             "reason": "valid_leaf",
             "message": "Foliage verified.",
+            "retry_message": "",
             "suggestions": [],
             "vegetation_ratio": round(vegetation_ratio, 3),
         }
@@ -281,6 +400,7 @@ def validate_leaf_image(image_bytes: bytes) -> dict:
             "is_valid": False,
             "reason": "corrupted_image",
             "message": f"Could not decode image file: {str(e)}",
+            "retry_message": "Please retry by uploading a valid JPEG, PNG, or WebP photo.",
             "suggestions": ["Please upload a valid JPEG, PNG, or WebP image."],
             "vegetation_ratio": 0.0,
         }
@@ -292,13 +412,15 @@ def predict_disease(image_bytes: bytes, filename: str = "") -> dict:
     First validates that the image is a plant leaf, then runs real ML or deterministic mock.
     """
     # Guardrail 1: Plant Foliage & Quality Validation
-    val = validate_leaf_image(image_bytes)
+    val = validate_leaf_image(image_bytes, filename=filename)
     if not val["is_valid"]:
         return {
             "status": "invalid_image",
             "is_valid": False,
             "reason": val["reason"],
+            "detected_subject": val.get("detected_subject", "Non-plant subject"),
             "message": val["message"],
+            "retry_message": val.get("retry_message", "Please retry by uploading a clear close-up photo of an agricultural crop leaf."),
             "suggestions": val["suggestions"],
             "vegetation_ratio": val.get("vegetation_ratio", 0.0),
             "confidence": 0.0,
@@ -371,8 +493,8 @@ def predict_disease(image_bytes: bytes, filename: str = "") -> dict:
 
     confidence = raw["confidence"]
 
-    # If model confidence is very low (< 0.20) on real model, flag as ambiguous
-    if active_mode == "real" and confidence < 0.20:
+    # If model confidence is very low (< 0.25) on real model, flag as ambiguous
+    if active_mode == "real" and confidence < 0.25:
         return {
             "status": "invalid_image",
             "is_valid": False,
@@ -382,6 +504,7 @@ def predict_disease(image_bytes: bytes, filename: str = "") -> dict:
                 f"Low diagnostic confidence ({round(confidence * 100, 1)}%). "
                 "The AI cannot clearly recognize a known crop leaf or disease in this image."
             ),
+            "retry_message": "Please retry with a sharper, closer photo of the leaf in bright natural light.",
             "suggestions": [
                 "Take a clearer photo closer to the leaf.",
                 "Ensure bright, even daylight without camera blur.",

@@ -68,7 +68,9 @@ async def api_predict_disease(
             "status": "invalid_image",
             "title": "No Crop Leaf Detected" if result.get("reason") != "low_confidence" else "Low Diagnostic Confidence",
             "reason": result.get("reason", "unknown"),
+            "detected_subject": result.get("detected_subject", ""),
             "message": result.get("message", "The uploaded image does not appear to contain recognizable crop foliage."),
+            "retry_message": result.get("retry_message", "Please retry by uploading or capturing a clear close-up photograph of an agricultural crop leaf in bright, natural light."),
             "suggestions": result.get("suggestions", [
                 "Take a close-up photo of a single crop leaf.",
                 "Ensure good natural daylight without glare or dark shadows.",

@@ -7,7 +7,9 @@
 
 // Toggle between Mock mode and Real Backend mode
 const USE_MOCK_API = false; // Live Backend Enabled!
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http'))
+  ? `${window.location.origin}/api`
+  : 'http://localhost:8000/api';
 
 /**
  * 1. Disease Detection (Core)

@@ -386,6 +386,11 @@ document.addEventListener('DOMContentLoaded', () => {
     state.selectedSamplePreset = null;
     clearActiveSampleChips();
 
+    // Hide any previous pre-scan warning banner
+    const previewLeafWarning = document.getElementById('previewLeafWarning');
+    const previewWarningMsg = document.getElementById('previewWarningMsg');
+    if (previewLeafWarning) previewLeafWarning.style.display = 'none';
+
     // Generate local preview
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -396,6 +401,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     reader.readAsDataURL(file);
     showToast(`Loaded ${file.name}`, 'info');
+
+    // Instant Client-Side Guardrail Pre-Check
+    if (window.AgriSmartMock?.validateClientLeafImage) {
+      window.AgriSmartMock.validateClientLeafImage(file).then(val => {
+        if (!val.isValid) {
+          if (previewLeafWarning) {
+            previewLeafWarning.style.display = 'flex';
+            if (previewWarningMsg) {
+              previewWarningMsg.textContent = val.message || 'This image does not appear to contain a crop leaf. Please retry with a plant leaf.';
+            }
+          }
+          if (previewMeta) {
+            previewMeta.innerHTML = `<span style="color: #D84315; font-weight: 700;">⚠️ Non-leaf image detected</span> • Retry recommended`;
+          }
+          showToast('Warning: Selected image does not appear to be a crop leaf', 'warning');
+        } else {
+          if (previewLeafWarning) previewLeafWarning.style.display = 'none';
+        }
+      }).catch(err => console.warn('Pre-scan leaf check:', err));
+    }
   }
 
   // Remove preview
@@ -405,7 +430,19 @@ document.addEventListener('DOMContentLoaded', () => {
       state.selectedSamplePreset = null;
       leafFileInput.value = '';
       imagePreviewCard.classList.remove('visible');
+      const previewLeafWarning = document.getElementById('previewLeafWarning');
+      if (previewLeafWarning) previewLeafWarning.style.display = 'none';
       clearActiveSampleChips();
+    });
+  }
+
+  const previewInlineRetryBtn = document.getElementById('previewInlineRetryBtn');
+  if (previewInlineRetryBtn) {
+    previewInlineRetryBtn.addEventListener('click', () => {
+      if (leafFileInput) {
+        leafFileInput.value = '';
+        leafFileInput.click();
+      }
     });
   }
 
@@ -477,6 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
       previewFilename.textContent = `${preset.name} (Live Specimen)`;
       previewMeta.textContent = `${preset.crop} • Auto-calibrated test photo • Ready for ML scan`;
       imagePreviewCard.classList.add('visible');
+
+      const previewLeafWarning = document.getElementById('previewLeafWarning');
+      if (previewLeafWarning) previewLeafWarning.style.display = 'none';
 
       showToast(`Selected ${preset.name} test sample`, 'success');
     });
@@ -559,7 +599,8 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       renderDiseaseResult(result);
       if (result.status === 'invalid_image') {
-        showToast(result.title || 'Image rejected: No plant leaf detected', 'warning');
+        const toastMsg = result.retry_message || 'Image rejected: Please upload a crop leaf photo to retry';
+        showToast(toastMsg, 'warning');
       } else {
         showToast(`Analysis complete: ${result.disease}`, result.status === 'healthy' ? 'success' : 'warning');
       }
@@ -587,6 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const valFoliage = document.getElementById('validationFoliageRatio');
         const valReason = document.getElementById('validationReasonText');
         const valMessage = document.getElementById('validationDetailMessage');
+        const valRetryMessage = document.getElementById('validationRetryMessage');
         const valTipsList = document.getElementById('validationTipsList');
 
         if (valTitle) valTitle.textContent = result.title || 'No Crop Leaf Detected';
@@ -612,12 +654,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (valMessage) {
           valMessage.textContent = result.message || 'The image does not contain recognizable plant foliage or foliar lesions.';
         }
+        if (valRetryMessage) {
+          valRetryMessage.textContent = result.retry_message || 'Please retry by uploading or capturing a clear close-up photograph of an agricultural crop leaf in bright natural daylight.';
+        }
         if (valTipsList && result.suggestions && result.suggestions.length > 0) {
           valTipsList.innerHTML = result.suggestions.map((sug, i) => {
             const icons = ['🌿', '☀️', '🎯', '🌾'];
             return `<li><span class="tip-icon">${icons[i % icons.length]}</span><div><strong>Tip ${i+1}:</strong> ${sug}</div></li>`;
           }).join('');
         }
+
+        diseaseValidationCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
       return;
     }
@@ -722,7 +769,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (validationRetakeBtn) {
     validationRetakeBtn.addEventListener('click', () => {
       const fileInput = document.getElementById('leafFileInput');
-      if (fileInput) fileInput.click();
+      if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
+      }
+      const dropzone = document.getElementById('leafDropzone');
+      if (dropzone) dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }
 

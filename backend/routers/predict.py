@@ -69,7 +69,10 @@ async def predict(
     if not result.get("is_valid", True):
         raise HTTPException(
             status_code=422,
-            detail=f"Image rejected: {result.get('message', 'No valid plant leaf detected. Please upload a clear photo of a crop leaf.')}",
+            detail=(
+                f"Image rejected: {result.get('message', 'No valid plant leaf detected.')} "
+                f"Retry: {result.get('retry_message', 'Please retry by uploading a clear photo of an agricultural crop leaf.')}"
+            ),
         )
 
     return PredictionResponse(
