@@ -87,7 +87,7 @@ async function validateClientLeafImage(imageFile) {
   const fname = (imageFile.name || '').toLowerCase();
   const nonPlantKeywords = [
     'car', 'cat', 'dog', 'pet', 'animal', 'selfie', 'person', 'human', 'face',
-    'phone', 'laptop', 'computer', 'screen', 'screenshot', 'document', 'invoice',
+    'phone', 'laptop', 'computer', 'screen', 'document', 'invoice',
     'receipt', 'pdf', 'blue', 'white', 'black', 'monotone', 'blank', 'test_blue',
     'test_white', 'furniture', 'room', 'building', 'shoe', 'food', 'snack', 'drink'
   ];
@@ -126,7 +126,7 @@ async function validateClientLeafImage(imageFile) {
       let totalR = 0, totalG = 0, totalB = 0;
 
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i+1], b = data[i+2];
+        const r = data[i], g = data[i + 1], b = data[i + 2];
         totalR += r; totalG += g; totalB += b;
 
         const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -715,32 +715,32 @@ async function mockGetSustainabilityScore(data = {}) {
 
   const tierLabel = overall >= 90 ? 'Tier 1: Eco-Certified Leader'
     : overall >= 75 ? 'Tier 2: Progressive Conservationist'
-    : overall >= 60 ? 'Tier 3: Moderate Efficiency Farm'
-    : 'Tier 4: High Resource Footprint';
+      : overall >= 60 ? 'Tier 3: Moderate Efficiency Farm'
+        : 'Tier 4: High Resource Footprint';
 
   const waterMetric = `${waterScore}/100 • ${waterScore >= 85 ? 'Tier 1 Efficiency' : waterScore >= 60 ? 'Moderate Efficiency' : 'Excess Withdrawal'}`;
   const waterSummary = waterScore >= 85
     ? 'Micro-drip deployment reduces runoff and evaporation losses significantly.'
     : waterScore >= 60
-    ? 'Water withdrawal is moderate. Early morning scheduling can improve retention.'
-    : 'Water consumption is significantly above FAO regional reference volume for this crop.';
+      ? 'Water withdrawal is moderate. Early morning scheduling can improve retention.'
+      : 'Water consumption is significantly above FAO regional reference volume for this crop.';
 
   const fertMetric = `${fertScore}/100 • ${fertScore >= 90 ? 'Optimal Dosage' : fertScore >= 60 ? 'Moderate Usage' : 'Excess Chemical Risk'}`;
   const fertSummary = fertScore >= 90
     ? 'Balanced nutrient application within ideal range (20–40 kg/ha).'
     : fertScore >= 60
-    ? 'Slightly elevated fertilizer dosage increases nitrate leaching vulnerability.'
-    : 'High fertilizer application causes soil acidification and significant runoff loss.';
+      ? 'Slightly elevated fertilizer dosage increases nitrate leaching vulnerability.'
+      : 'High fertilizer application causes soil acidification and significant runoff loss.';
 
   const methodCapitalized = irrigationMethod.charAt(0).toUpperCase() + irrigationMethod.slice(1);
   const irrigMetric = `${methodScore}/100 • ${methodCapitalized} Method`;
   const irrigSummary = methodScore >= 90
     ? 'High-efficiency drip lines deliver water directly to the crop root zone.'
     : methodScore >= 70
-    ? 'Sprinklers provide uniform coverage with moderate aerial evaporative loss.'
-    : methodScore >= 45
-    ? 'Furrow distribution leads to moderate seepage and non-uniform infiltration.'
-    : 'Flood irrigation causes substantial surface evaporation, nutrient runoff, and waterlogging.';
+      ? 'Sprinklers provide uniform coverage with moderate aerial evaporative loss.'
+      : methodScore >= 45
+        ? 'Furrow distribution leads to moderate seepage and non-uniform infiltration.'
+        : 'Flood irrigation causes substantial surface evaporation, nutrient runoff, and waterlogging.';
 
   const diseaseMetric = `${diseaseScore}/100 • ${diseaseScore >= 90 ? 'Healthy Canopy' : 'Infection Stress'}`;
   const diseaseSummary = diseaseScore >= 90

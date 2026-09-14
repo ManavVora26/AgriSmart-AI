@@ -279,7 +279,7 @@ def validate_leaf_image(image_bytes: bytes, filename: str = "") -> dict:
     fn_lower = (filename or "").lower()
     non_plant_keywords = [
         "car", "cat", "dog", "pet", "selfie", "person", "human", "face",
-        "phone", "laptop", "document", "invoice", "receipt", "screenshot",
+        "phone", "laptop", "document", "invoice", "receipt",
         "blue", "white", "monotone", "blank", "test_blue", "test_white", "building", "vehicle"
     ]
     for kw in non_plant_keywords:
