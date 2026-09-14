@@ -80,13 +80,16 @@ curl -X POST http://localhost:8000/recommend-crop \
 
 | MODE | Description |
 |------|-------------|
-| `mock` (default) | Stub model — deterministic results from image stats, no GPU needed |
-| `real` | Load trained EfficientNet-B0 weights from `model_weights/disease_model.pt` |
+| `real` (recommended) | Loads trained EfficientNet-B0 weights from `model/best_agri_model.pth` (38 classes, included in repo) |
+| `mock` | Stub model — deterministic results from image stats, no GPU or model loading needed |
 
-To switch to real mode:
-1. Place `disease_model.pt` in `backend/model_weights/`
-2. Set `MODEL_MODE=real` in `.env`
-3. Restart the server
+The trained model weights are already located at `model/best_agri_model.pth` (16.5 MB).
+
+To run with the real model:
+1. Ensure `MODEL_WEIGHTS_PATH=../model/best_agri_model.pth` in `backend/.env`
+2. Set `MODEL_MODE=real` in `backend/.env`
+3. Start or restart the server: `uvicorn main:app --reload`
+
 
 ---
 

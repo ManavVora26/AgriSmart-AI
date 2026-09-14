@@ -18,9 +18,16 @@ async def run_tests():
         print(f"[1/8] GET / -> Status {res.status_code}")
         assert res.status_code == 200
 
-        # 2. Disease Predict
-        files = {"image": ("test_leaf.jpg", b"fake_image_bytes", "image/jpeg")}
-        data = {"crop_type": "Tomato", "soil_moisture": "68", "temperature": "27"}
+        # 2. Disease Predict (using apple_scab sample or real test image)
+        import os
+        test_img_path = os.path.join(os.path.dirname(__file__), "..", "Test Images", "Test.jpeg")
+        if os.path.exists(test_img_path):
+            with open(test_img_path, "rb") as img_f:
+                leaf_bytes = img_f.read()
+        else:
+            leaf_bytes = b"\xff\xd8\xff" + b"\x00" * 200  # Fallback dummy bytes
+        files = {"image": ("apple_scab_leaf.jpg", leaf_bytes, "image/jpeg")}
+        data = {"crop_type": "Apple", "soil_moisture": "55", "temperature": "22"}
         res = await client.post("/api/predict-disease", files=files, data=data)
         d = res.json()
         print(f"[2/8] POST /api/predict-disease -> Status {res.status_code} | Disease: {d.get('disease')} | Status: {d.get('status')}")

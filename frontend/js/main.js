@@ -287,6 +287,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Footer navigation links click
+  document.querySelectorAll('.footer-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        const sectionId = href.replace('#', '');
+        switchSection(sectionId);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  });
+
   // Mobile toggle button for desktop nav bar
   if (navToggleBtn && navWrapper) {
     navToggleBtn.addEventListener('click', () => {

@@ -22,8 +22,17 @@ Docs: http://localhost:8000/docs
 
 import logging
 import os
+import sys
+from pathlib import Path
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+
+# Ensure the backend directory is in sys.path so sub-packages (routers, services, etc.)
+# resolve properly whether the command is run from root (uvicorn backend.main:app)
+# or from the backend directory (uvicorn main:app).
+_backend_dir = str(Path(__file__).resolve().parent)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
