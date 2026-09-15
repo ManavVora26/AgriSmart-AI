@@ -136,7 +136,7 @@ async def get_assistant_response(
         )
         
         # gemini-3.6-flash is Google's active model supporting new AQ. API keys
-        models_to_try = ["gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = ["gemini-3.6-flash", "gemini-2.5-flash"]
         response = None
         last_err = None
 
@@ -152,9 +152,20 @@ async def get_assistant_response(
                         break
                 except Exception as e_candidate:
                     last_err = e_candidate
-                    if "429" in str(e_candidate) or "RESOURCE_EXHAUSTED" in str(e_candidate):
+                    err_str = str(e_candidate)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                         await asyncio.sleep(2)
                         continue
+                    if (
+                        "403" in err_str
+                        or "PERMISSION_DENIED" in err_str
+                        or "leaked" in err_str.lower()
+                        or "API key" in err_str
+                        or "no longer available" in err_str.lower()
+                        or "not available to new users" in err_str.lower()
+                        or "not available" in err_str.lower()
+                    ):
+                        break
                     break
             if response and response.text:
                 break
@@ -174,9 +185,22 @@ async def get_assistant_response(
     except Exception as e:
         err_msg = str(e)
         logger.error(f"Gemini API error: {err_msg}")
-        
+
         notice = None
-        if "API key not valid" in err_msg or "INVALID_ARGUMENT" in err_msg or "400" in err_msg:
+        lowered = err_msg.lower()
+        if (
+            "leaked" in lowered
+            or "permission_denied" in lowered
+            or "403" in err_msg
+            or "no longer available" in lowered
+            or "not available to new users" in lowered
+            or "not available" in lowered
+        ):
+            notice = (
+                "Notice: Your Google Gemini API key is invalid, expired, or was reported as leaked/restricted. "
+                "Generate a fresh key at https://aistudio.google.com/app/apikey and replace GEMINI_API_KEY in backend/.env."
+            )
+        elif "API key not valid" in err_msg or "INVALID_ARGUMENT" in err_msg or "400" in err_msg:
             notice = (
                 "Notice: Google Gemini rejected the configured API key (400 INVALID_ARGUMENT). "
                 "Ensure your GEMINI_API_KEY in backend/.env starts with 'AIzaSy...' from https://aistudio.google.com/app/apikey."
@@ -295,4 +319,5 @@ def _grounded_fallback_response(
         "language": language,
         "grounded": True,
         "sources_used": sources if sources else ["AgriSmart grounded agronomic knowledge base"],
+        "notice": notice,
     }
