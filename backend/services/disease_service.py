@@ -8,6 +8,7 @@ Weights loaded from: model/best_agri_model.pth
 
 import os
 import io
+import re
 import random
 import logging
 from pathlib import Path
@@ -196,7 +197,9 @@ def _check_gemini_vision_leaf(image_bytes: bytes) -> Optional[dict]:
     Uses Google Gemini Vision to accurately check if the image is a plant leaf
     or an out-of-domain object (car, human, animal, document, room, etc.).
     """
-    if not GEMINI_API_KEY:
+    load_dotenv(override=True)
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key or not api_key.startswith("AIza"):
         return None
 
     try:
@@ -204,7 +207,7 @@ def _check_gemini_vision_leaf(image_bytes: bytes) -> Optional[dict]:
         from google.genai import types
         import json
 
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = genai.Client(api_key=api_key)
 
         # Detect mime type
         mime_type = "image/jpeg"
@@ -274,30 +277,6 @@ def validate_leaf_image(image_bytes: bytes, filename: str = "") -> dict:
             "suggestions": ["Please upload a valid JPEG, PNG, or WebP photo."],
             "vegetation_ratio": 0.0,
         }
-
-    # Filename keyword check for immediate rejection of obvious non-plant test files
-    fn_lower = (filename or "").lower()
-    non_plant_keywords = [
-        "car", "cat", "dog", "pet", "selfie", "person", "human", "face",
-        "phone", "laptop", "document", "invoice", "receipt",
-        "blue", "white", "monotone", "blank", "test_blue", "test_white", "building", "vehicle"
-    ]
-    for kw in non_plant_keywords:
-        if kw in fn_lower and not ("leaf" in fn_lower or "blight" in fn_lower or "spot" in fn_lower or "rust" in fn_lower):
-            return {
-                "is_valid": False,
-                "reason": "no_plant_detected",
-                "detected_subject": f"Non-plant file ({filename})",
-                "message": f"No crop leaf detected in \"{filename}\". The subject appears to be a non-plant object or document.",
-                "retry_message": "Please retry by capturing or uploading a close-up photo of an affected plant leaf.",
-                "suggestions": [
-                    "Take a close-up photo of a single crop leaf.",
-                    "Ensure good natural daylight without glare or dark shadows.",
-                    "Focus camera directly on the affected leaf surface.",
-                    "Ensure the subject is a supported agricultural plant (Tomato, Potato, Corn, Apple, etc.)."
-                ],
-                "vegetation_ratio": 0.0,
-            }
 
     try:
         img = Image.open(io.BytesIO(image_bytes))

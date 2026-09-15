@@ -84,31 +84,6 @@ async function validateClientLeafImage(imageFile) {
     };
   }
 
-  const fname = (imageFile.name || '').toLowerCase();
-  const nonPlantKeywords = [
-    'car', 'cat', 'dog', 'pet', 'animal', 'selfie', 'person', 'human', 'face',
-    'phone', 'laptop', 'computer', 'screen', 'document', 'invoice',
-    'receipt', 'pdf', 'blue', 'white', 'black', 'monotone', 'blank', 'test_blue',
-    'test_white', 'furniture', 'room', 'building', 'shoe', 'food', 'snack', 'drink'
-  ];
-  for (const kw of nonPlantKeywords) {
-    if (fname.includes(kw) && !fname.includes('leaf') && !fname.includes('plant') && !fname.includes('blight') && !fname.includes('rust')) {
-      return {
-        isValid: false,
-        reason: 'no_plant_detected',
-        message: `No crop leaf detected in "${imageFile.name}". The subject appears to be a non-plant object, document, or vehicle.`,
-        retry_message: 'Please retry by capturing or selecting a close-up photo of a crop leaf.',
-        vegetationRatio: 0.0,
-        suggestions: [
-          'Take a close-up photo of a single crop leaf.',
-          'Ensure good natural daylight without flash glare.',
-          'Focus camera directly on the leaf surface or lesions.',
-          'Ensure the subject is a supported agricultural crop.'
-        ]
-      };
-    }
-  }
-
   // If HTML Image/Blob, analyze pixel HSV spectrum and texture variation via canvas
   if (imageFile instanceof Blob || imageFile instanceof File) {
     try {
