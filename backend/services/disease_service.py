@@ -198,8 +198,11 @@ def _check_gemini_vision_leaf(image_bytes: bytes) -> Optional[dict]:
     or an out-of-domain object (car, human, animal, document, room, etc.).
     """
     load_dotenv(override=True)
+    if os.getenv("ENABLE_GEMINI_VISION", "false").lower() != "true":
+        return None
+
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key or not api_key.startswith("AIza"):
+    if not api_key:
         return None
 
     try:
@@ -207,7 +210,10 @@ def _check_gemini_vision_leaf(image_bytes: bytes) -> Optional[dict]:
         from google.genai import types
         import json
 
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(
+            api_key=api_key,
+            http_options={"headers": {"x-goog-api-key": api_key}}
+        )
 
         # Detect mime type
         mime_type = "image/jpeg"

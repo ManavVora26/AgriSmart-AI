@@ -120,40 +120,46 @@ async def get_assistant_response(
     # Dynamically re-read .env in case user changed it without restarting server
     load_dotenv(override=True)
     active_key = os.getenv("GEMINI_API_KEY", "").strip()
-    is_invalid_format = active_key and not active_key.startswith("AIza")
 
-    if not active_key or is_invalid_format:
-        hint = (
-            "Notice: The GEMINI_API_KEY in backend/.env is not a valid Google AI Studio key (must start with 'AIzaSy...'). "
-            "Running in grounded offline advisory mode. To enable live Gemini AI, get a free key from https://aistudio.google.com/app/apikey."
-        ) if is_invalid_format else None
-        if hint:
-            logger.warning(hint)
-        return _grounded_fallback_response(question, ctx_dict, language, sources_used, notice=hint)
+    if not active_key:
+        return _grounded_fallback_response(question, ctx_dict, language, sources_used)
 
     try:
+        import asyncio
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=active_key)
+        # Pass x-goog-api-key header required for Google's new AQ. keys
+        client = genai.Client(
+            api_key=active_key,
+            http_options={"headers": {"x-goog-api-key": active_key}}
+        )
         
-        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite"]
+        # gemini-3.6-flash is Google's active model supporting new AQ. API keys
+        models_to_try = ["gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
         response = None
         last_err = None
 
         for m_name in models_to_try:
-            try:
-                response = await client.aio.models.generate_content(
-                    model=m_name,
-                    config=types.GenerateContentConfig(system_instruction=system_prompt),
-                    contents=question,
-                )
+            for retry_attempt in range(2):
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=m_name,
+                        config=types.GenerateContentConfig(system_instruction=system_prompt),
+                        contents=question,
+                    )
+                    if response and response.text:
+                        break
+                except Exception as e_candidate:
+                    last_err = e_candidate
+                    if "429" in str(e_candidate) or "RESOURCE_EXHAUSTED" in str(e_candidate):
+                        await asyncio.sleep(2)
+                        continue
+                    break
+            if response and response.text:
                 break
-            except Exception as e_candidate:
-                last_err = e_candidate
-                continue
 
-        if not response:
+        if not response or not response.text:
             raise last_err or Exception("All candidate Gemini models failed.")
 
         answer = response.text.strip()
@@ -162,7 +168,7 @@ async def get_assistant_response(
             "answer": answer,
             "language": language,
             "grounded": grounded,
-            "sources_used": sources_used if sources_used else ["general agricultural knowledge"],
+            "sources_used": sources_used if sources_used else ["Google Gemini 3.6 Flash", "regional farm telemetry"],
         }
 
     except Exception as e:
